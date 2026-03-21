@@ -109,8 +109,7 @@ export class CesiumController extends MapController {
         fullscreenButton: true,
         infoBox: false,
         scene3DOnly: true,
-        terrainProvider: this.config.terrainProvider,
-        imageryProvider: this.config.imageryProvider
+        terrainProvider: this.config.terrainProvider
       });
       
       // 设置全局变量以便调试
@@ -226,25 +225,16 @@ export class CesiumController extends MapController {
     if (!this.viewer) return;
     
     const [[west, south], [east, north]] = bounds;
+    // 调整相机高度以适应范围
+    const rectangle = new Rectangle(
+      CesiumMath.toRadians(west),
+      CesiumMath.toRadians(south),
+      CesiumMath.toRadians(east),
+      CesiumMath.toRadians(north)
+    );
+    
     this.viewer.camera.flyTo({
-      destination: Cartesian3.fromDegreesArrayHeights([
-        west, south, 0,
-        east, south, 0,
-        east, north, 0,
-        west, north, 0
-      ]),
-      complete: () => {
-        // 调整相机高度以适应范围
-        const rectangle = new Rectangle(
-          CesiumMath.toRadians(west),
-          CesiumMath.toRadians(south),
-          CesiumMath.toRadians(east),
-          CesiumMath.toRadians(north)
-        );
-        this.viewer!.camera.flyTo({
-          destination: rectangle
-        });
-      }
+      destination: rectangle
     });
   }
 

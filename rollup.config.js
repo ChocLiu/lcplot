@@ -17,6 +17,7 @@ export default defineConfig([
       commonjs(),
       typescript({ tsconfig: './tsconfig.json' }),
     ],
+    external: ['cesium', 'ol', 'cesium/Build/Cesium/Widgets/widgets.css'],
   },
   // ES module output
   {
@@ -31,5 +32,26 @@ export default defineConfig([
       commonjs(),
       typescript({ tsconfig: './tsconfig.json' }),
     ],
+    external: ['cesium', 'ol', 'cesium/Build/Cesium/Widgets/widgets.css'],
+  },
+  // UMD output for browser
+  {
+    input: 'src/index.ts',
+    output: {
+      file: 'dist/lcplot.umd.js',
+      format: 'umd',
+      name: 'lcplot',
+      sourcemap: true,
+      globals: {
+        'cesium': 'Cesium',
+        'ol': 'ol'
+      },
+    },
+    plugins: [
+      resolve(),
+      commonjs(),
+      typescript({ tsconfig: './tsconfig.json' }),
+    ],
+    external: ['cesium', 'ol', 'cesium/Build/Cesium/Widgets/widgets.css'],
   },
 ]);

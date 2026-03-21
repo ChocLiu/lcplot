@@ -62,3 +62,6 @@ export type {
   EarthCorrectionConfig,
   LineOfSightManagerConfig
 } from './types';
+
+// 工具类导出
+export { SIDCValidator } from './utils/sidc-validator';
