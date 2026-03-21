@@ -3,7 +3,7 @@
  * 负责在 Cesium 中渲染 MIL-STD-2525D 标准图元
  */
 
-import { Viewer, Cartesian3, Color, BillboardCollection, Billboard, Entity, EntityCollection, HeightReference, Matrix4, Transforms, HeadingPitchRoll, Math as CesiumMath } from 'cesium';
+import { Viewer, Cartesian3, Color, BillboardCollection, Billboard, Entity, EntityCollection, HeightReference, Matrix4, Transforms, HeadingPitchRoll, Math as CesiumMath, ShadowMode } from 'cesium';
 import {
   AdvancedPrimitive,
   PrimitiveCreateOptions,
@@ -27,6 +27,7 @@ interface PrimitiveRenderState {
   labelEntity: Entity | null;
   modelEntity: Entity | null;
   lastUpdateTime: number;
+  lastDistance?: number; // 用于LOD更新检查
 }
 
 /**
@@ -139,7 +140,8 @@ export class CesiumPrimitiveRenderer {
       billboard: null,
       labelEntity: null,
       modelEntity: null,
-      lastUpdateTime: Date.now()
+      lastUpdateTime: Date.now(),
+      lastDistance: 0
     });
     
     // 渲染图元
@@ -502,9 +504,13 @@ export class CesiumPrimitiveRenderer {
       const scale = this.calculateLodScale(distance, primitive);
       
       // 获取颜色
-      const color = primitive.visualization.color || 
-                   this.identityColors.get(primitive.properties.identity) || 
-                   Color.WHITE;
+      const colorValue = primitive.visualization.color || 
+                        this.identityColors.get(primitive.properties.identity) || 
+                        Color.WHITE;
+      // 确保color是Color对象
+      const color = typeof colorValue === 'string' 
+        ? Color.fromCssColorString(colorValue)
+        : colorValue;
       
       const entity = new Entity({
         id: primitive.id,
@@ -559,7 +565,9 @@ export class CesiumPrimitiveRenderer {
       label: {
         text: primitive.properties.name,
         font: primitive.interaction.labelFont || this.defaultStyles.labelFont,
-        fillColor: primitive.interaction.labelColor || this.defaultStyles.labelColor,
+        fillColor: primitive.interaction.labelColor 
+          ? Color.fromCssColorString(primitive.interaction.labelColor)
+          : this.defaultStyles.labelColor,
         backgroundColor: Color.fromCssColorString(
           primitive.visualization.labelBackgroundColor || 
           this.defaultStyles.labelBackgroundColor.toCssColorString()
@@ -607,7 +615,7 @@ export class CesiumPrimitiveRenderer {
           minimumPixelSize: 64,
           maximumScale: 1000,
           show: true,
-          shadows: primitive.visualization.showShadow ? 'ENABLED' : 'DISABLED'
+          shadows: primitive.visualization.showShadow ? ShadowMode.ENABLED : ShadowMode.DISABLED
         },
         properties: {
           primitiveId: primitive.id,
@@ -743,17 +751,12 @@ export class CesiumPrimitiveRenderer {
     if (!lodDistances) return false;
     
     // 检查是否跨越了LOD阈值
-    const lastDistance = renderState.entity?.properties?.lastDistance || 0;
+    const lastDistance = renderState.lastDistance || 0;
     const threshold = lodDistances.billboard * 0.1; // 10%的阈值避免抖动
     
     if (Math.abs(currentDistance - lastDistance) > threshold) {
       // 更新记录的距离
-      if (renderState.entity) {
-        renderState.entity.properties = {
-          ...renderState.entity.properties,
-          lastDistance: currentDistance
-        };
-      }
+      renderState.lastDistance = currentDistance;
       return true;
     }
     

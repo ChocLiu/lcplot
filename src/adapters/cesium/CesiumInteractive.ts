@@ -3,7 +3,7 @@
  * 负责处理 Cesium 中的图元点击、拖拽、标牌拖拽等交互
  */
 
-import { Viewer, ScreenSpaceEventHandler, ScreenSpaceEventType, Cartesian3, Math as CesiumMath, Ray, Scene } from 'cesium';
+import { Viewer, ScreenSpaceEventHandler, ScreenSpaceEventType, Cartesian2, Cartesian3, Math as CesiumMath, Ray, Scene } from 'cesium';
 import {
   AdvancedPrimitive,
   PrimitiveEventType,
@@ -307,7 +307,8 @@ export class CesiumInteractive {
     position: [number, number, number];
     isLabel: boolean;
   } | null {
-    const pickedObject = this.viewer.scene.pick(screenPosition);
+    const cartesian2 = new Cartesian2(screenPosition.x, screenPosition.y);
+    const pickedObject = this.viewer.scene.pick(cartesian2);
     
     if (!pickedObject || !pickedObject.id) {
       return null;
@@ -351,17 +352,17 @@ export class CesiumInteractive {
    * 从屏幕坐标获取位置
    */
   private getPositionFromScreen(screenPosition: { x: number; y: number }): Cartesian3 | null {
-    const ray = this.viewer.camera.getPickRay(screenPosition);
-    if (!ray) return null;
+    const cartesian2 = new Cartesian2(screenPosition.x, screenPosition.y);
     
     if (this.terrainConform) {
       // 贴合地形
+      const ray = this.viewer.camera.getPickRay(cartesian2);
+      if (!ray) return null;
       const intersection = this.viewer.scene.globe.pick(ray, this.viewer.scene);
       return intersection || null;
     } else {
-      // 使用平面
-      const plane = this.scene.globe.ellipsoid;
-      const intersection = plane.intersectRay(ray);
+      // 使用椭球体表面（平面模式）
+      const intersection = this.viewer.scene.camera.pickEllipsoid(cartesian2);
       return intersection || null;
     }
   }
