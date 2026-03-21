@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+dist/
+*.log
+
+# Build outputs
+*.js.map
+*.d.ts.map
+
+# Environment variables
+.env
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.backup
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+
+# Documentation (optional, can be included)
+# !docs/
