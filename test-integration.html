@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LCPLOT Integration Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/cesium@1.116.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #cesiumContainer {
+            width: 100%;
+            height: 70vh;
+            position: relative;
+        }
+        #controls {
+            padding: 20px;
+            background: #f5f5f5;
+            border-top: 1px solid #ddd;
+        }
+        .button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .button:hover {
+            background: #005a9e;
+        }
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #2e7d32;
+        }
+        .error {
+            color: #d32f2f;
+        }
+        .info {
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="padding: 20px; margin: 0; background: #2c3e50; color: white;">
+        LCPLOT Integration Test - Cesium Advanced Primitives
+    </h1>
+    
+    <div id="cesiumContainer"></div>
+    
+    <div id="controls">
+        <h2>Test Controls</h2>
+        <div>
+            <button class="button" id="initMap">1. Initialize Map</button>
+            <button class="button" id="createTank" disabled>2. Create Tank (Friendly)</button>
+            <button class="button" id="createEnemy" disabled>3. Create Enemy Aircraft</button>
+            <button class="button" id="updatePrimitive" disabled>4. Update Label Position</button>
+            <button class="button" id="queryPrimitives" disabled>5. Query Primitives</button>
+            <button class="button" id="cleanup" disabled>6. Cleanup</button>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <h3>Test Log</h3>
+            <div id="log" class="log">Waiting for initialization...</div>
+        </div>
+    </div>
+
+    <!-- Cesium from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.116.0/Build/Cesium/Cesium.js"></script>
+    
+    <!-- LCPLOT from local build (ESM module) -->
+    <script type="module">
+        // Import our built library
+        import * as lcplot from './dist/lcplot.esm.js';
+        
+        // Global variables
+        let controller = null;
+        let primitiveIds = [];
+        const logElement = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const line = `[${timestamp}] ${message}`;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = line;
+            logElement.appendChild(div);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Initialize map
+        document.getElementById('initMap').addEventListener('click', async () => {
+            try {
+                log('Initializing Cesium map...');
+                
+                // Create container
+                const container = document.getElementById('cesiumContainer');
+                
+                // Initialize controller
+                controller = new lcplot.CesiumController(container, {
+                    center: [116.4, 39.9],
+                    zoom: 12
+                }, {
+                    symbolLibraryConfig: {
+                        baseUrl: 'data:image/svg+xml,',
+                        format: 'svg',
+                        size: [64, 64]
+                    }
+                });
+                
+                controller.init();
+                log('Map initialized successfully!', 'success');
+                
+                // Enable other buttons
+                document.getElementById('createTank').disabled = false;
+                document.getElementById('createEnemy').disabled = false;
+                document.getElementById('initMap').disabled = true;
+                
+            } catch (error) {
+                log(`Failed to initialize map: ${error.message}`, 'error');
+                console.error(error);
+            }
+        });
+        
+        // Create friendly tank
+        document.getElementById('createTank').addEventListener('click', async () => {
+            try {
+                log('Creating friendly tank primitive...');
+                
+                const tankId = await controller.createAdvancedPrimitive({
+                    sidc: 'SFGPUCA---A---', // Ground unit - Tank - Friendly
+                    position: [116.4, 39.9, 0],
+                    properties: {
+                        identity: lcplot.IdentityCode.FRIEND,
+                        name: '第1坦克营',
+                        strength: 'BN'
+                    },
+                    interaction: {
+                        draggable: true,
+                        labelDraggable: true,
+                        showLabel: true,
+                        labelOffset: [0, 50, 0]
+                    },
+                    visualization: {
+                        scale: 1.0,
+                        color: '#0000ff' // Blue for friendly
+                    }
+                });
+                
+                primitiveIds.push(tankId);
+                log(`Tank created with ID: ${tankId}`, 'success');
+                
+                // Enable update button
+                document.getElementById('updatePrimitive').disabled = false;
+                document.getElementById('queryPrimitives').disabled = false;
+                document.getElementById('cleanup').disabled = false;
+                
+            } catch (error) {
+                log(`Failed to create tank: ${error.message}`, 'error');
+                console.error(error);
+            }
+        });
+        
+        // Create enemy aircraft
+        document.getElementById('createEnemy').addEventListener('click', async () => {
+            try {
+                log('Creating enemy aircraft primitive...');
+                
+                const aircraftId = await controller.createAdvancedPrimitive({
+                    sidc: 'SFAPMF----A---', // Air unit - Fixed wing - Enemy
+                    position: [116.41, 39.91, 5000], // 5km altitude
+                    properties: {
+                        identity: lcplot.IdentityCode.HOSTILE,
+                        name: '敌机-01',
+                        equipment: ['Fighter']
+                    },
+                    interaction: {
+                        draggable: true,
+                        labelDraggable: true,
+                        showLabel: true,
+                        labelOffset: [0, -50, 0]
+                    },
+                    visualization: {
+                        scale: 1.0,
+                        color: '#ff0000' // Red for enemy
+                    }
+                });
+                
+                primitiveIds.push(aircraftId);
+                log(`Enemy aircraft created with ID: ${aircraftId}`, 'success');
+                
+            } catch (error) {
+                log(`Failed to create aircraft: ${error.message}`, 'error');
+                console.error(error);
+            }
+        });
+        
+        // Update primitive label
+        document.getElementById('updatePrimitive').addEventListener('click', async () => {
+            try {
+                if (primitiveIds.length === 0) return;
+                
+                const tankId = primitiveIds[0];
+                log(`Updating label position for ${tankId}...`);
+                
+                await controller.updateAdvancedPrimitive(tankId, {
+                    interaction: { labelOffset: [0, 80, 0] }
+                });
+                
+                log('Label position updated successfully!', 'success');
+                
+            } catch (error) {
+                log(`Failed to update primitive: ${error.message}`, 'error');
+                console.error(error);
+            }
+        });
+        
+        // Query primitives
+        document.getElementById('queryPrimitives').addEventListener('click', async () => {
+            try {
+                log('Querying primitives...');
+                
+                const results = controller.queryAdvancedPrimitives({
+                    bounds: [[116.38, 39.88], [116.42, 39.92]]
+                });
+                
+                log(`Found ${results.length} primitives in bounds`, 'success');
+                log(`Primitive IDs: ${JSON.stringify(results)}`);
+                
+            } catch (error) {
+                log(`Failed to query primitives: ${error.message}`, 'error');
+                console.error(error);
+            }
+        });
+        
+        // Cleanup
+        document.getElementById('cleanup').addEventListener('click', async () => {
+            try {
+                log(`Cleaning up ${primitiveIds.length} primitives...`);
+                
+                for (const id of primitiveIds) {
+                    controller.removeAdvancedPrimitive(id);
+                }
+                
+                primitiveIds = [];
+                log('All primitives removed', 'success');
+                
+                // Reset buttons
+                document.getElementById('createTank').disabled = false;
+                document.getElementById('createEnemy').disabled = false;
+                document.getElementById('updatePrimitive').disabled = true;
+                document.getElementById('queryPrimitives').disabled = true;
+                document.getElementById('cleanup').disabled = true;
+                
+            } catch (error) {
+                log(`Failed to cleanup: ${error.message}`, 'error');
+                console.error(error);
+            }
+        });
+        
+        log('Test page loaded. Click "Initialize Map" to start.', 'info');
+        
+    </script>
+</body>
+</html>

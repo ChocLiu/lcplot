@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LCPLOT UMD Browser Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/cesium@1.116.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #cesiumContainer {
+            width: 100%;
+            height: 70vh;
+        }
+        #controls {
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .log {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            font-family: monospace;
+            font-size: 12px;
+            height: 100px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>LCPLOT UMD Browser Test</h1>
+    <div id="cesiumContainer"></div>
+    <div id="controls">
+        <div id="status" style="margin-bottom: 10px; padding: 10px; background: #e8f4fd; border: 1px solid #b6d7f2; border-radius: 4px;">
+            <strong>加载状态：</strong><span id="statusText">正在加载 Cesium 资源...</span>
+        </div>
+        <button onclick="initTest()" id="initBtn" disabled>Initialize Test</button>
+        <button onclick="createPrimitive()" id="createBtn" disabled>Create Primitive</button>
+        <div id="log" class="log"></div>
+    </div>
+
+    <!-- Cesium from CDN (creates global Cesium) - must be loaded before lcplot -->
+    <script>
+        let cesiumLoaded = false;
+        let lcplotLoaded = false;
+        
+        function updateStatus() {
+            const statusEl = document.getElementById('statusText');
+            const initBtn = document.getElementById('initBtn');
+            
+            if (!cesiumLoaded) {
+                statusEl.textContent = '正在加载 Cesium...';
+                return;
+            }
+            if (!lcplotLoaded) {
+                statusEl.textContent = '正在加载 LCPLOT...';
+                return;
+            }
+            
+            statusEl.textContent = '✅ 资源加载完成！点击 Initialize Test 开始测试';
+            initBtn.disabled = false;
+            document.getElementById('status').style.background = '#e8fde8';
+            document.getElementById('status').style.borderColor = '#b6f2b6';
+        }
+        
+        // 加载 Cesium
+        const cesiumScript = document.createElement('script');
+        cesiumScript.src = 'https://cdn.jsdelivr.net/npm/cesium@1.116.0/Build/Cesium/Cesium.js';
+        cesiumScript.onload = function() {
+            console.log('Cesium loaded from CDN');
+            cesiumLoaded = true;
+            updateStatus();
+        };
+        cesiumScript.onerror = function() {
+            console.error('Failed to load Cesium from CDN, trying fallback...');
+            // 尝试备用 CDN
+            const fallbackScript = document.createElement('script');
+            fallbackScript.src = 'https://unpkg.com/cesium@1.116.0/Build/Cesium/Cesium.js';
+            fallbackScript.onload = function() {
+                console.log('Cesium loaded from fallback CDN');
+                cesiumLoaded = true;
+                updateStatus();
+            };
+            fallbackScript.onerror = function() {
+                document.getElementById('statusText').innerHTML = 
+                    '❌ 无法加载 Cesium，请检查网络连接或使用本地 Cesium 构建。<br>' +
+                    '错误：CDN 资源加载失败。';
+                document.getElementById('status').style.background = '#fde8e8';
+                document.getElementById('status').style.borderColor = '#f2b6b6';
+                console.error('All Cesium CDN attempts failed');
+            };
+            document.head.appendChild(fallbackScript);
+        };
+        document.head.appendChild(cesiumScript);
+    </script>
+    
+    <!-- LCPLOT UMD build - depends on global Cesium -->
+    <script>
+        // 等待 Cesium 加载完成后再加载 lcplot
+        function loadLcplot() {
+            if (!cesiumLoaded) {
+                console.log('Waiting for Cesium to load...');
+                setTimeout(loadLcplot, 100);
+                return;
+            }
+            
+            const lcplotScript = document.createElement('script');
+            lcplotScript.src = './dist/lcplot.umd.js';
+            lcplotScript.onload = function() {
+                console.log('LCPLOT UMD loaded');
+                lcplotLoaded = true;
+                updateStatus();
+            };
+            lcplotScript.onerror = function() {
+                document.getElementById('statusText').innerHTML = 
+                    '❌ 无法加载 LCPLOT UMD 文件。<br>' +
+                    '请确保已运行 <code>npm run build</code> 生成 dist/lcplot.umd.js';
+                document.getElementById('status').style.background = '#fde8e8';
+                document.getElementById('status').style.borderColor = '#f2b6b6';
+                console.error('Failed to load LCPLOT UMD');
+            };
+            document.head.appendChild(lcplotScript);
+        }
+        
+        // 延迟一点开始加载 lcplot，确保 Cesium 脚本已开始加载
+        setTimeout(loadLcplot, 500);
+    </script>
+    
+    <script>
+        let controller = null;
+        let primitiveId = null;
+        const logEl = document.getElementById('log');
+        
+        // 增强的日志函数，支持不同类型
+        function log(msg, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌ ' : type === 'success' ? '✅ ' : '📝 ';
+            const line = `[${time}] ${prefix}${msg}`;
+            
+            const lineEl = document.createElement('div');
+            lineEl.textContent = line;
+            lineEl.style.color = type === 'error' ? '#c00' : type === 'success' ? '#090' : '#333';
+            lineEl.style.fontFamily = 'monospace';
+            lineEl.style.fontSize = '12px';
+            lineEl.style.padding = '2px 0';
+            
+            logEl.appendChild(lineEl);
+            logEl.scrollTop = logEl.scrollHeight;
+            
+            console.log(`[${type}] ${msg}`);
+        }
+        
+        // 资源加载完成后的初始化日志
+        function onResourcesLoaded() {
+            log('Cesium 和 LCPLOT 资源加载完成', 'success');
+            log('点击 "Initialize Test" 按钮开始测试', 'info');
+        }
+        
+        // 监听资源加载状态
+        let resourcesLoadedLogged = false;
+        function checkResourcesAndLog() {
+            if (cesiumLoaded && lcplotLoaded && !resourcesLoadedLogged) {
+                resourcesLoadedLogged = true;
+                setTimeout(onResourcesLoaded, 100);
+            }
+        }
+        
+        // 修改 updateStatus 函数，添加日志检查
+        const originalUpdateStatus = updateStatus;
+        updateStatus = function() {
+            originalUpdateStatus();
+            checkResourcesAndLog();
+        };
+        
+        // 初始化测试函数
+        function initTest() {
+            try {
+                log('=== 开始 LCPLOT 测试 ===', 'info');
+                
+                // Step 1: 检查 Cesium
+                log('1. 检查 Cesium...');
+                if (typeof Cesium === 'undefined') {
+                    log('错误：Cesium 未加载', 'error');
+                    return;
+                }
+                log(`Cesium 版本: ${Cesium.VERSION}`, 'success');
+                
+                // Step 2: 检查 lcplot
+                log('2. 检查 LCPLOT...');
+                if (typeof lcplot === 'undefined') {
+                    log('错误：lcplot 未找到', 'error');
+                    return;
+                }
+                log(`LCPLOT 加载成功，导出数量: ${Object.keys(lcplot).length}`, 'success');
+                
+                // Step 3: 配置 Cesium 令牌（显式禁用 Cesium Ion）
+                log('3. 配置 Cesium 访问令牌...');
+                if (Cesium.Ion) {
+                    // 显式设置空令牌，防止 Cesium 尝试使用 Ion 服务
+                    Cesium.Ion.defaultAccessToken = '';
+                    log('已禁用 Cesium Ion 服务，使用 OpenStreetMap 底图', 'success');
+                }
+                
+                // Step 4: 创建 LCPLOT 控制器
+                log('4. 创建 CesiumController...');
+                controller = new lcplot.CesiumController(
+                    document.getElementById('cesiumContainer'), 
+                    {}, // MapOptions (留空)
+                    {
+                        // CesiumControllerConfig - 所有 Cesium 特定配置
+                        imageryProvider: new Cesium.OpenStreetMapImageryProvider({
+                            url: 'https://a.tile.openstreetmap.org/',
+                            maximumLevel: 19
+                        }),
+                        symbolLibraryConfig: {
+                            baseUrl: './test-icons/',
+                            format: 'svg',
+                            size: [64, 64]
+                        },
+                        lodDistances: {
+                            billboardToModel: 5000,   // 5公里内显示3D模型
+                            hide: 500000              // 500公里外隐藏（确保可见）
+                        }
+                    }
+                );
+                
+                controller.init();
+                log('CesiumController 初始化成功', 'success');
+                
+                // Step 5: 获取 viewer 并设置相机
+                log('5. 配置地图视图...');
+                const viewer = controller.getViewer ? controller.getViewer() : window.cesiumViewer;
+                if (viewer) {
+                    log('Cesium Viewer 创建成功', 'success');
+                    
+                    // 设置相机位置到北京（降低高度以便看到图元）
+                    viewer.camera.flyTo({
+                        destination: Cesium.Cartesian3.fromDegrees(116.4, 39.9, 50000),
+                        orientation: {
+                            heading: Cesium.Math.toRadians(0),
+                            pitch: Cesium.Math.toRadians(-90),
+                            roll: 0
+                        },
+                        duration: 2
+                    });
+                    log('相机已定位到北京 (116.4°E, 39.9°N, 50km高度)', 'success');
+                } else {
+                    log('警告：无法获取 Cesium Viewer 实例', 'info');
+                }
+                
+                // Step 6: 启用创建图元按钮
+                document.getElementById('createBtn').disabled = false;
+                log('=== 准备就绪！可以创建图元 ===', 'success');
+                
+            } catch (error) {
+                log(`初始化失败: ${error.message}`, 'error');
+                console.error('详细错误:', error);
+                log(`堆栈: ${error.stack}`, 'error');
+            }
+        }
+        
+        // 创建图元函数
+        async function createPrimitive() {
+            if (!controller) {
+                log('错误：控制器未初始化', 'error');
+                return;
+            }
+            
+            try {
+                log('正在创建图元...', 'info');
+                
+                // 使用正确的 IdentityCode
+                const identity = lcplot.IdentityCode ? lcplot.IdentityCode.FRIEND : 'friend';
+                
+                // 创建简单图元（异步等待）
+                primitiveId = await controller.createAdvancedPrimitive({
+                    sidc: 'SFGPUCA---A---',
+                    position: [116.4, 39.9, 0],
+                    properties: {
+                        identity: identity,
+                        name: '测试坦克 - 友方'
+                    },
+                    interaction: {
+                        draggable: true,
+                        labelDraggable: true,
+                        showLabel: true
+                    },
+                    visualization: {
+                        billboardUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Blue_circle.png/32px-Blue_circle.png'
+                    }
+                });
+                
+                log(`图元创建成功，ID: ${primitiveId}`, 'success');
+                log('图元位置: 北京 (116.4°E, 39.9°N)', 'info');
+                
+                // 调试：检查图元渲染状态
+                try {
+                    if (window.cesiumViewer && window.cesiumViewer.entities) {
+                        const entityCount = window.cesiumViewer.entities.values.length;
+                        log(`调试：Cesium 实体总数: ${entityCount}`, 'info');
+                        
+                        // 尝试找到刚创建的图元实体
+                        const entities = window.cesiumViewer.entities.values;
+                        let found = false;
+                        for (let i = 0; i < entities.length; i++) {
+                            const entity = entities[i];
+                            if (entity.id && entity.id.includes(primitiveId)) {
+                                log(`调试：找到图元实体，ID: ${entity.id}`, 'success');
+                                found = true;
+                                
+                                // 检查实体类型和属性
+                                if (entity.billboard) {
+                                    log(`调试：实体包含 billboard，图片: ${entity.billboard.image || '无'}`, 'info');
+                                }
+                                if (entity.label) {
+                                    log(`调试：实体包含 label，文本: ${entity.label.text || '无'}`, 'info');
+                                }
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            log('调试：未找到图元实体，可能还未渲染', 'info');
+                        }
+                    } else {
+                        log('调试：无法访问 Cesium viewer 或 entities', 'info');
+                    }
+                } catch (debugError) {
+                    log(`调试错误: ${debugError.message}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`创建图元失败: ${error.message}`, 'error');
+                console.error('详细错误:', error);
+            }
+        }
+        
+        // 初始检查
+        setTimeout(checkResourcesAndLog, 1000);
+    </script>
+</body>
+</html>

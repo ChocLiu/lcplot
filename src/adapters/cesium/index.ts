@@ -32,9 +32,26 @@ import {
   IdentityCode
 } from '../../types';
 
-// Cesium 相关
-import { Viewer, Color, Cartesian3, Math as CesiumMath, Rectangle } from 'cesium';
-import 'cesium/Build/Cesium/Widgets/widgets.css';
+// Cesium 相关 - 使用命名空间导入以兼容UMD构建
+import * as Cesium from 'cesium';
+// import 'cesium/Build/Cesium/Widgets/widgets.css'; // 注释掉CSS导入，由HTML通过link标签加载
+
+// 获取 Cesium 对象（兼容浏览器全局变量）
+const getCesium = (): any => {
+  // 如果模块导入的 Cesium 可用，使用模块导入
+  if (typeof Cesium !== 'undefined' && Cesium.Viewer) {
+    return Cesium;
+  }
+  // 否则尝试全局 Cesium 对象
+  if (typeof window !== 'undefined' && (window as any).Cesium) {
+    return (window as any).Cesium;
+  }
+  // 最后尝试 globalThis
+  if (typeof globalThis !== 'undefined' && (globalThis as any).Cesium) {
+    return (globalThis as any).Cesium;
+  }
+  throw new Error('Cesium library not found. Make sure Cesium is loaded before using CesiumController.');
+};
 
 // 内部模块
 import { CesiumPrimitiveRenderer, CesiumPrimitiveRendererConfig } from './CesiumPrimitiveRenderer';
@@ -68,7 +85,7 @@ export interface CesiumControllerConfig {
  * Cesium 控制器实现
  */
 export class CesiumController extends MapController {
-  private viewer: Viewer | null = null;
+  private viewer: Cesium.Viewer | null = null;
   private config: CesiumControllerConfig;
   
   // 高级图元系统
@@ -92,12 +109,37 @@ export class CesiumController extends MapController {
 
   // ========== 基础地图功能 ==========
 
+  /**
+   * 获取 Cesium 对象（延迟加载）
+   */
+  private getCesium(): any {
+    return getCesium();
+  }
+
   init(): void {
     if (this.isInitialized) return;
     
     try {
+      // 获取 Cesium 对象（兼容各种环境）
+      const Cesium = this.getCesium();
+      
+      // 确保禁用 Cesium Ion（多重防护）
+      if (Cesium.Ion) {
+        Cesium.Ion.defaultAccessToken = '';
+      }
+      
+      // 确保有有效的影像提供者（避免使用 Ion 世界影像）
+      let imageryProvider = this.config.imageryProvider;
+      if (!imageryProvider) {
+        // 默认使用 OpenStreetMap，避免 Ion 依赖
+        imageryProvider = new Cesium.OpenStreetMapImageryProvider({
+          url: 'https://a.tile.openstreetmap.org/',
+          maximumLevel: 19
+        });
+      }
+      
       // 初始化 Cesium Viewer
-      this.viewer = new Viewer(this.container, {
+      this.viewer = new Cesium.Viewer(this.container, {
         baseLayerPicker: false,
         geocoder: false,
         homeButton: true,
@@ -109,8 +151,12 @@ export class CesiumController extends MapController {
         fullscreenButton: true,
         infoBox: false,
         scene3DOnly: true,
+        imageryProvider: imageryProvider,
         terrainProvider: this.config.terrainProvider
       });
+      
+      // 额外防护：确保不使用 Ion 相关资源
+      // 注意：通过设置空令牌和提供自定义 imageryProvider，应该已足够
       
       // 设置全局变量以便调试
       (window as any).cesiumViewer = this.viewer;
@@ -165,18 +211,20 @@ export class CesiumController extends MapController {
   setCenter(center: [number, number]): void {
     if (!this.viewer) return;
     
+    const Cesium = this.getCesium();
     const [longitude, latitude] = center;
     this.viewer.camera.setView({
-      destination: Cartesian3.fromDegrees(longitude, latitude, 10000)
+      destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, 10000)
     });
   }
 
   getCenter(): [number, number] {
     if (!this.viewer) return [0, 0];
     
+    const Cesium = this.getCesium();
     const position = this.viewer.camera.positionCartographic;
-    const longitude = CesiumMath.toDegrees(position.longitude);
-    const latitude = CesiumMath.toDegrees(position.latitude);
+    const longitude = Cesium.Math.toDegrees(position.longitude);
+    const latitude = Cesium.Math.toDegrees(position.latitude);
     
     return [longitude, latitude];
   }
@@ -184,12 +232,13 @@ export class CesiumController extends MapController {
   setZoom(zoom: number): void {
     if (!this.viewer) return;
     
+    const Cesium = this.getCesium();
     // Cesium 使用高度而不是缩放级别
     // 这里简化处理：将zoom映射到高度
     const height = Math.pow(2, 20 - zoom) * 100; // 近似映射
     const center = this.getCenter();
     this.viewer.camera.setView({
-      destination: Cartesian3.fromDegrees(center[0], center[1], height)
+      destination: Cesium.Cartesian3.fromDegrees(center[0], center[1], height)
     });
   }
 
@@ -205,7 +254,8 @@ export class CesiumController extends MapController {
   setRotation(rotation: number): void {
     if (!this.viewer) return;
     
-    const heading = CesiumMath.toRadians(rotation);
+    const Cesium = this.getCesium();
+    const heading = Cesium.Math.toRadians(rotation);
     this.viewer.camera.setView({
       orientation: {
         heading: heading,
@@ -218,19 +268,21 @@ export class CesiumController extends MapController {
   getRotation(): number {
     if (!this.viewer) return 0;
     
-    return CesiumMath.toDegrees(this.viewer.camera.heading);
+    const Cesium = this.getCesium();
+    return Cesium.Math.toDegrees(this.viewer.camera.heading);
   }
 
   fitBounds(bounds: [[number, number], [number, number]]): void {
     if (!this.viewer) return;
     
+    const Cesium = this.getCesium();
     const [[west, south], [east, north]] = bounds;
     // 调整相机高度以适应范围
-    const rectangle = new Rectangle(
-      CesiumMath.toRadians(west),
-      CesiumMath.toRadians(south),
-      CesiumMath.toRadians(east),
-      CesiumMath.toRadians(north)
+    const rectangle = new Cesium.Rectangle(
+      Cesium.Math.toRadians(west),
+      Cesium.Math.toRadians(south),
+      Cesium.Math.toRadians(east),
+      Cesium.Math.toRadians(north)
     );
     
     this.viewer.camera.flyTo({
@@ -594,7 +646,7 @@ export class CesiumController extends MapController {
   /**
    * 获取当前 Cesium Viewer 实例
    */
-  getViewer(): Viewer | null {
+  getViewer(): Cesium.Viewer | null {
     return this.viewer;
   }
 
@@ -677,9 +729,9 @@ export class CesiumController extends MapController {
       },
       defaultStyles: {
         labelFont: '14px sans-serif',
-        labelColor: Color.WHITE,
-        labelBackgroundColor: Color.BLACK.withAlpha(0.7),
-        highlightColor: Color.YELLOW
+        labelColor: 'white',
+        labelBackgroundColor: 'rgba(0,0,0,0.7)',
+        highlightColor: 'yellow'
       }
     };
     

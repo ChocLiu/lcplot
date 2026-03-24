@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LCPLOT Simple UMD Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .log { background: #f0f0f0; padding: 15px; margin: 10px 0; border: 1px solid #ccc; font-family: monospace; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>LCPLOT Simple UMD Test</h1>
+    <p>Testing if UMD build loads correctly...</p>
+    
+    <button onclick="testLoad()">Test UMD Load</button>
+    <button onclick="testExports()" id="testExportsBtn" disabled>Test Exports</button>
+    
+    <h3>Test Log</h3>
+    <div id="log" class="log"></div>
+    
+    <!-- Load Cesium first (lcplot depends on it) -->
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.116.0/Build/Cesium/Cesium.js"></script>
+    
+    <!-- Load lcplot UMD build -->
+    <script src="./dist/lcplot.umd.js"></script>
+    
+    <script>
+        const logEl = document.getElementById('log');
+        
+        function log(msg, type = 'info') {
+            const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            console.log(`[${type}] ${msg}`);
+            
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = line;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function testLoad() {
+            log('Testing UMD build loading...');
+            
+            // Check if lcplot is in global scope
+            if (typeof lcplot === 'undefined') {
+                log('ERROR: lcplot not found in global scope', 'error');
+                log('Checking window object...', 'info');
+                log('Window keys: ' + Object.keys(window).filter(k => k.includes('lcplot') || k.includes('plot')).join(', '), 'info');
+                return;
+            }
+            
+            log('SUCCESS: lcplot found in global scope!', 'success');
+            log('Type of lcplot: ' + typeof lcplot, 'info');
+            
+            // Enable next test
+            document.getElementById('testExportsBtn').disabled = false;
+        }
+        
+        function testExports() {
+            if (typeof lcplot === 'undefined') {
+                log('lcplot not loaded', 'error');
+                return;
+            }
+            
+            log('Testing lcplot exports...', 'info');
+            
+            // Check for expected exports
+            const expected = [
+                'MapController',
+                'MapFactory', 
+                'CesiumController',
+                'OpenLayersController',
+                'MilitaryDomain',
+                'IdentityCode',
+                'SIDCValidator'
+            ];
+            
+            let found = 0;
+            expected.forEach(exportName => {
+                if (lcplot[exportName] !== undefined) {
+                    log(`✓ ${exportName}: found`, 'success');
+                    found++;
+                } else {
+                    log(`✗ ${exportName}: NOT FOUND`, 'error');
+                }
+            });
+            
+            log(`Found ${found}/${expected.length} expected exports`, found === expected.length ? 'success' : 'error');
+            
+            // Try to inspect the object
+            log('All lcplot keys: ' + Object.keys(lcplot).join(', '), 'info');
+        }
+        
+        // Auto-test on load
+        window.addEventListener('DOMContentLoaded', () => {
+            log('Page loaded. Click "Test UMD Load" to start.', 'info');
+        });
+    </script>
+</body>
+</html>

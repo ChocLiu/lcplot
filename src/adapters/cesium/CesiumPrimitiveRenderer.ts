@@ -48,9 +48,9 @@ export interface CesiumPrimitiveRendererConfig {
   // 默认样式
   defaultStyles?: {
     labelFont?: string;
-    labelColor?: Color;
-    labelBackgroundColor?: Color;
-    highlightColor?: Color;
+    labelColor?: Color | string;
+    labelBackgroundColor?: Color | string;
+    highlightColor?: Color | string;
   };
 }
 
@@ -77,9 +77,9 @@ export class CesiumPrimitiveRenderer {
   // 样式配置
   private defaultStyles: {
     labelFont: string;
-    labelColor: Color;
-    labelBackgroundColor: Color;
-    highlightColor: Color;
+    labelColor: Color | string;
+    labelBackgroundColor: Color | string;
+    highlightColor: Color | string;
   };
   
   // 阵营颜色映射
@@ -116,6 +116,16 @@ export class CesiumPrimitiveRenderer {
     
     // 绑定渲染循环
     this.bindToRenderLoop();
+  }
+
+  /**
+   * 将颜色对象或字符串转换为 CSS 颜色字符串
+   */
+  private _getCssColor(color: Color | string): string {
+    if (typeof color === 'string') {
+      return color;
+    }
+    return color.toCssColorString();
   }
 
   /**
@@ -352,8 +362,8 @@ export class CesiumPrimitiveRenderer {
         billboardSize: options.visualization?.billboardSize || [64, 64],
         modelScale: options.visualization?.modelScale || [1, 1, 1],
         color: options.visualization?.color,
-        highlightColor: options.visualization?.highlightColor || this.defaultStyles.highlightColor.toCssColorString(),
-        labelBackgroundColor: options.visualization?.labelBackgroundColor || this.defaultStyles.labelBackgroundColor.toCssColorString(),
+        highlightColor: options.visualization?.highlightColor || this._getCssColor(this.defaultStyles.highlightColor),
+        labelBackgroundColor: options.visualization?.labelBackgroundColor || this._getCssColor(this.defaultStyles.labelBackgroundColor),
         showShadow: options.visualization?.showShadow ?? true,
         depthTest: options.visualization?.depthTest ?? true,
         blending: options.visualization?.blending || 'opaque',
@@ -567,10 +577,12 @@ export class CesiumPrimitiveRenderer {
         font: primitive.interaction.labelFont || this.defaultStyles.labelFont,
         fillColor: primitive.interaction.labelColor 
           ? Color.fromCssColorString(primitive.interaction.labelColor)
-          : this.defaultStyles.labelColor,
+          : (typeof this.defaultStyles.labelColor === 'string' 
+             ? Color.fromCssColorString(this.defaultStyles.labelColor) 
+             : this.defaultStyles.labelColor),
         backgroundColor: Color.fromCssColorString(
           primitive.visualization.labelBackgroundColor || 
-          this.defaultStyles.labelBackgroundColor.toCssColorString()
+          this._getCssColor(this.defaultStyles.labelBackgroundColor)
         ),
         pixelOffset: new Cartesian3(offsetX, offsetY),
         showBackground: true,
