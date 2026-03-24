@@ -10,6 +10,7 @@ export class SymbolLibrary {
   private cache = new Map<string, HTMLImageElement>();
   private loadingPromises = new Map<string, Promise<HTMLImageElement>>();
   private errorCache = new Set<string>(); // 记录加载失败的图标
+  private svgDataUrlCache = new Map<string, string>(); // 缓存生成的 SVG Data URL
 
   constructor(config: SymbolResourceConfig) {
     this.config = config;
@@ -125,6 +126,7 @@ export class SymbolLibrary {
     this.cache.clear();
     this.loadingPromises.clear();
     this.errorCache.clear();
+    this.svgDataUrlCache.clear();
   }
 
   /**
@@ -134,11 +136,13 @@ export class SymbolLibrary {
     cached: number;
     loading: number;
     errors: number;
+    svgCached: number;
   } {
     return {
       cached: this.cache.size,
       loading: this.loadingPromises.size,
-      errors: this.errorCache.size
+      errors: this.errorCache.size,
+      svgCached: this.svgDataUrlCache.size
     };
   }
 
@@ -180,9 +184,16 @@ export class SymbolLibrary {
    */
   private async loadFallbackSymbol(sidc: SIDC): Promise<HTMLImageElement> {
     // 备用策略：
-    // 1. 尝试加载通用图标
-    // 2. 创建简易的Canvas图标
-    // 3. 使用纯色方块
+    // 1. 尝试使用 milsymbol 生成 SVG 图标（如果可用）
+    // 2. 尝试加载通用图标
+    // 3. 创建简易的Canvas图标
+    // 4. 使用纯色方块
+    
+    // 首先尝试使用 milsymbol 生成 SVG
+    const svgImage = await this.tryGenerateSvgSymbol(sidc);
+    if (svgImage) {
+      return svgImage;
+    }
     
     const fallbackSidc = this.getFallbackSidc(sidc);
     if (fallbackSidc !== sidc) {
@@ -195,6 +206,52 @@ export class SymbolLibrary {
     
     // 创建Canvas图标
     return this.createCanvasSymbol(sidc);
+  }
+
+  /**
+   * 尝试使用 milsymbol 生成 SVG 图标
+   */
+  private async tryGenerateSvgSymbol(sidc: SIDC): Promise<HTMLImageElement | null> {
+    // 检查是否在浏览器环境中且 milsymbol 可用
+    if (typeof window === 'undefined') {
+      return null; // 非浏览器环境
+    }
+    const ms = (window as any).ms;
+    if (!ms || typeof ms.Symbol !== 'function') {
+      return null; // milsymbol 未加载
+    }
+    try {
+      // 生成缓存键：包含 SIDC 和配置尺寸
+      const cacheKey = `${sidc}:${this.config.size[0]}`;
+      
+      // 检查 SVG Data URL 缓存
+      if (this.svgDataUrlCache.has(cacheKey)) {
+        const cachedDataUrl = this.svgDataUrlCache.get(cacheKey)!;
+        return this.loadImage(cachedDataUrl);
+      }
+      
+      // 生成 SVG
+      const symbol = new ms.Symbol(sidc, { size: this.config.size[0] });
+      const svgString = symbol.asSVG();
+      const dataUrl = 'data:image/svg+xml;base64,' + btoa(svgString);
+      
+      // 缓存 Data URL
+      this.svgDataUrlCache.set(cacheKey, dataUrl);
+      
+      // 限制缓存大小（最多 100 个条目）
+      if (this.svgDataUrlCache.size > 100) {
+        // 删除第一个（最旧的）条目
+        const firstKey = this.svgDataUrlCache.keys().next().value;
+        if (firstKey) {
+          this.svgDataUrlCache.delete(firstKey);
+        }
+      }
+      
+      return this.loadImage(dataUrl);
+    } catch (error) {
+      console.warn(`Failed to generate SVG symbol for ${sidc}:`, error);
+      return null;
+    }
   }
 
   /**

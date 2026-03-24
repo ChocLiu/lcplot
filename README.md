@@ -9,6 +9,7 @@
 - **阵营系统**：友方、敌方、中立、未知等12种标准阵营
 - **SIDC编码**：15位美军标编码验证与解析
 - **图标库**：SVG图标按需加载，LRU缓存优化
+- **milsymbol 集成**：可选集成 [milsymbol](https://github.com/spatialillusions/milsymbol) 库，当本地图标缺失时自动生成标准 MIL-STD-2525D SVG 图标，支持实时生成与缓存
 
 ### 🖼️ 高级图元渲染（Cesium）
 - **双模式渲染**：2D图标(Billboard) + 3D模型(glTF)
@@ -119,6 +120,38 @@ controller.onPrimitiveEvent('primitive:click', (data) => {
 
 // 独立标牌拖拽
 // 用户可拖拽标牌，实体位置保持不变
+```
+
+### 使用 milsymbol 生成图标（可选）
+
+```html
+<!-- 在页面中引入 milsymbol 库 -->
+<script src="https://cdn.jsdelivr.net/npm/milsymbol@3.0.4/dist/milsymbol.min.js"></script>
+```
+
+```typescript
+// LCPLOT 会自动检测全局 milsymbol 库
+// 当本地图标文件缺失时，会调用 milsymbol.Symbol() 生成 SVG 图标
+// 生成的图标会缓存以避免重复生成
+
+// 你可以完全不提供图标库，仅依赖 milsymbol 生成
+const controller = new CesiumController(container, {}, {
+  symbolLibraryConfig: {
+    baseUrl: '', // 空路径，强制使用 milsymbol 生成
+    format: 'svg',
+    size: [64, 64]
+  }
+});
+
+// 或者提供部分图标库，缺失的图标由 milsymbol 补充
+const controller2 = new CesiumController(container, {}, {
+  symbolLibraryConfig: {
+    baseUrl: '/custom-icons', // 自定义图标库
+    format: 'svg',
+    size: [64, 64]
+  }
+});
+// 如果 /custom-icons/SFGPUCA---A---.svg 不存在，则自动生成
 ```
 
 ### 通视分析（开发中）
@@ -234,5 +267,5 @@ MIT License
 
 ---
 **仓库**：https://github.com/ChocLiu/lcplot  
-**最后更新**：2026-03-21  
+**最后更新**：2026-03-25  
 **版本**：v0.2.0-alpha（高级图元渲染版）
