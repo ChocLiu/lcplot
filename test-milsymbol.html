@@ -70,39 +70,21 @@
         }
         
         function initTest() {
-            log('Initializing Cesium...');
+            log('Initializing Cesium via LCPLOT...');
             try {
+                // 检查 Cesium 是否完全加载
+                if (typeof Cesium === 'undefined') {
+                    log('ERROR: Cesium is not defined. Check if CDN loaded successfully.', 'error');
+                    return;
+                }
+                
+                log('Cesium version: ' + Cesium.VERSION, 'info');
+                
                 // Configure Cesium to avoid Ion errors
                 Cesium.Ion.defaultAccessToken = '';
                 
-                // 创建更简单的 viewer 配置，避免地形相关错误
-                cesiumViewer = new Cesium.Viewer('cesiumContainer', {
-                    baseLayer: new Cesium.OpenStreetMapImageryProvider({
-                        url: 'https://a.tile.openstreetmap.org/'
-                    }),
-                    // 完全禁用地形以避免API错误
-                    terrainProvider: undefined,
-                    animation: false,
-                    timeline: false,
-                    fullscreenButton: false,
-                    // 添加更多配置以稳定 Cesium
-                    baseLayerPicker: false,
-                    geocoder: false,
-                    homeButton: false,
-                    infoBox: false,
-                    navigationHelpButton: false,
-                    sceneModePicker: false,
-                    selectionIndicator: false
-                });
-                
-                // 地形已禁用，无需错误处理
-                
-                // 设置相机视角
-                cesiumViewer.camera.setView({
-                    destination: Cesium.Cartesian3.fromDegrees(116.4, 39.9, 50000)
-                });
-                
-                log('Cesium viewer created successfully.', 'success');
+                // 不预先创建 viewer，让 LCPLOT 的 CesiumController 来创建
+                log('Cesium will be initialized by LCPLOT controller', 'info');
                 
                 // Check if milsymbol is available
                 if (typeof window.ms === 'undefined') {
@@ -115,6 +97,14 @@
                 log('Creating LCPLOT controller...');
                 try {
                     lcplotController = new lcplot.CesiumController('cesiumContainer', {}, {
+                        // 使用网格底图，避免网络依赖
+                        imageryProvider: new Cesium.GridImageryProvider({
+                            cells: 8,
+                            color: Cesium.Color.fromCssColorString('#444444'),
+                            lineWidth: 1
+                        }),
+                        // 禁用地形
+                        terrainProvider: false,
                         symbolLibraryConfig: {
                             baseUrl: '/non-existent-icons', // will cause fallback
                             format: 'svg',
@@ -153,6 +143,20 @@
             }
             log('Creating primitive with SIDC SFGPUCA---A--- (hostile tank - red icon)...');
             try {
+                // 首先测试 milsymbol 是否能生成图标
+                if (typeof window.ms !== 'undefined') {
+                    try {
+                        const testSymbol = new window.ms.Symbol('SFGPUCA---A---', { size: 64 });
+                        const svgString = testSymbol.asSVG();
+                        log('milsymbol can generate SVG: ' + svgString.substring(0, 100) + '...', 'info');
+                    } catch (msErr) {
+                        log('WARNING: milsymbol test generation failed: ' + msErr.message, 'error');
+                    }
+                }
+                
+                // 获取 viewer（CesiumController 会将其赋值给 window.cesiumViewer）
+                const viewer = window.cesiumViewer || cesiumViewer;
+                
                 primitiveId = await lcplotController.createAdvancedPrimitive({
                     sidc: 'SFGPUCA---A---',
                     position: [116.4, 39.9, 0],
@@ -167,20 +171,69 @@
                     },
                     visualization: {
                         // No billboardUrl provided, will use milsymbol fallback
-                        // Add scale to make icon larger and more visible
-                        scale: 32.0
+                        // 增加图标尺寸，确保可见
+                        scale: 64.0,
+                        // 添加调试信息
+                        debug: true
                     }
                 });
                 log('Primitive created with ID: ' + primitiveId, 'success');
                 document.getElementById('checkBtn').disabled = false;
                 document.getElementById('cacheBtn').disabled = false;
                 
+                // 立即检查是否创建成功
+                log('Checking Cesium entities after creation...', 'info');
+                // 使用之前获取的 viewer 变量
+                if (viewer && viewer.entities) {
+                    const entityCount = viewer.entities.values.length;
+                    log(`Total Cesium entities: ${entityCount}`, 'info');
+                    
+                    // 查找我们的图元
+                    let found = false;
+                    const entities = viewer.entities.values;
+                    for (let i = 0; i < entities.length; i++) {
+                        const entity = entities[i];
+                        if (entity.id && entity.id.toString().includes(primitiveId)) {
+                            log(`Found our primitive entity: ${entity.id}`, 'success');
+                            found = true;
+                            
+                            // 检查实体属性
+                            if (entity.billboard) {
+                                log('Entity has billboard', 'info');
+                                const billboard = entity.billboard;
+                                if (billboard.image) {
+                                    const imgSrc = billboard.image.getValue();
+                                    log(`Billboard image: ${typeof imgSrc}`, 'info');
+                                    if (typeof imgSrc === 'string') {
+                                        log(`Image source: ${imgSrc.substring(0, 80)}...`, 'info');
+                                    }
+                                }
+                                if (billboard.scale) {
+                                    const scale = billboard.scale.getValue();
+                                    log(`Billboard scale: ${scale}`, 'info');
+                                }
+                            }
+                            if (entity.position) {
+                                const pos = entity.position.getValue();
+                                log(`Entity position: ${JSON.stringify(pos)}`, 'info');
+                            }
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        log('WARNING: Could not find our primitive in Cesium entities', 'error');
+                        log('Entity IDs: ' + Array.from(entities).map(e => e.id).join(', '), 'info');
+                    }
+                } else {
+                    log('WARNING: Cannot access Cesium viewer or entities', 'error');
+                }
+                
                 // 为了更容易看到图标，将相机拉近一些
-                if (cesiumViewer) {
-                    cesiumViewer.camera.setView({
-                        destination: Cesium.Cartesian3.fromDegrees(116.4, 39.9, 10000) // 10km高度
+                if (viewer) {
+                    viewer.camera.setView({
+                        destination: Cesium.Cartesian3.fromDegrees(116.4, 39.9, 5000) // 5km高度，更近
                     });
-                    log('Camera zoomed in to 10km for better visibility.');
+                    log('Camera zoomed in to 5km for better visibility.', 'info');
                 }
             } catch (err) {
                 log('ERROR creating primitive: ' + err.message, 'error');
@@ -190,9 +243,15 @@
         
         function checkIcon() {
             if (!lcplotController) return;
+            // 获取 viewer（CesiumController 会将其赋值给 window.cesiumViewer）
+            const viewer = window.cesiumViewer || cesiumViewer;
+            if (!viewer || !viewer.entities) {
+                log('Cesium viewer not available.', 'error');
+                return;
+            }
             // We can't directly inspect the icon source, but we can check if the primitive is visible
             log('Checking primitive visibility...');
-            const entities = cesiumViewer.entities.values;
+            const entities = viewer.entities.values;
             let found = false;
             for (let i = 0; i < entities.length; i++) {
                 if (entities[i].id === primitiveId) {
