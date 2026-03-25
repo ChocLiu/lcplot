@@ -209,9 +209,37 @@ const tankId = await controller.createAdvancedPrimitive({
 2. **公共 API 设计**：通过添加 `getSymbolLibrary()` 方法，保持了良好的封装性，同时提供了必要的调试功能。
 3. **渐进式增强**：milsymbol 集成是可选功能，如果未加载 milsymbol 库，系统会自动回退到 Canvas 绘制。
 
+## 2026-03-25 更新（第四阶段）
+
+### ✅ 语法错误修复与独立测试页
+- **语法错误修复**：解决 `test-milsymbol.html` 中的变量重复声明错误（`Identifier 'viewer' has already been declared`）
+- **独立测试页**：创建 `test-milsymbol-only.html`，完全不依赖 Cesium，用于验证核心功能
+- **用户验证**：备选测试页已验证成功，milsymbol 图标生成功能正常
+- **版本控制**：提交哈希 `2c1d103`，包含语法修复和独立测试页
+
+### 🧪 当前测试状态
+- **备选测试页** (`test-milsymbol-only.html`)：✅ 验证成功，用户确认图标可正常生成
+- **主测试页** (`test-milsymbol.html`)：🔄 语法错误已修复，等待用户重新验证
+- **核心功能验证**：
+  - ✅ milsymbol 图标生成功能正常
+  - ✅ LCPLOT SymbolLibrary 集成正常
+  - ✅ SVG 数据URL生成与缓存正常
+  - 🔄 Cesium 集成待验证（用户反馈Cesium初始化成功，但有浏览器警告）
+
+### 🔍 已知问题与浏览器警告
+1. **浏览器隐私警告**：Tracking Prevention阻止Cesium Ion图标加载（无害，不影响功能）
+2. **性能警告**：requestAnimationFrame处理时间较长（正常，Cesium渲染开销）
+3. **语法错误**：已修复`viewer`变量重复声明问题
+
+### 🚀 下一步计划
+1. **主测试页验证**：等待用户验证语法错误修复后的版本
+2. **浏览器警告处理**：考虑进一步配置Cesium以避免Ion图标加载警告
+3. **功能完善**：基于验证结果，继续完善MIL-STD-2525D符号库支持
+
 ---
 **报告生成时间**：2026-03-21 18:35 GMT+8（原始报告）  
 **第一阶段更新**：2026-03-25 06:50 GMT+8（milsymbol 集成）  
 **第二阶段更新**：2026-03-25 07:10 GMT+8（缓存优化与文档）  
 **第三阶段更新**：2026-03-25 08:35 GMT+8（API 扩展与错误修复）  
+**第四阶段更新**：2026-03-25 18:56 GMT+8（语法错误修复与独立测试页）  
 **下次更新**：根据测试结果决定下一步（通视分析或性能优化）
