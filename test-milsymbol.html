@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LCPLOT Milsymbol Integration Test</title>
+    <title>LCPLOT Milsymbol Test - Red Icon (Hostile)</title>
     <link href="https://cdn.jsdelivr.net/npm/cesium@1.116.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/milsymbol@3.0.4/dist/milsymbol.min.js"></script>
     <style>
@@ -32,15 +32,17 @@
     </style>
 </head>
 <body>
-    <h1>LCPLOT Milsymbol Integration Test</h1>
-    <p>This test verifies that LCPLOT can use milsymbol to generate SVG icons when local icon files are missing.</p>
+    <h1>LCPLOT Milsymbol Integration Test - Red Icon (Hostile Tank)</h1>
+    <p>This test creates a hostile (red) tank icon using milsymbol when local icon files are missing. 
+       The icon should appear as a red tank symbol on the map.</p>
     
     <div id="cesiumContainer"></div>
     
     <div>
         <button id="initBtn" onclick="initTest()">Initialize Cesium & LCPLOT</button>
-        <button id="createBtn" onclick="createPrimitive()" disabled>Create Primitive with SIDC 'SFGPUCA---A---'</button>
+        <button id="createBtn" onclick="createPrimitive()" disabled>Create Red Hostile Tank (SIDC: SFGPUCA---A---)</button>
         <button id="checkBtn" onclick="checkIcon()" disabled>Check Icon Source</button>
+        <button id="cacheBtn" onclick="checkCache()" disabled>Check Cache Stats</button>
     </div>
     
     <div>
@@ -69,57 +71,77 @@
         
         function initTest() {
             log('Initializing Cesium...');
-            // Configure Cesium to avoid Ion errors
-            Cesium.Ion.defaultAccessToken = '';
-            // Create viewer with OpenStreetMap
-            cesiumViewer = new Cesium.Viewer('cesiumContainer', {
-                baseLayer: new Cesium.OpenStreetMapImageryProvider({
-                    url: 'https://a.tile.openstreetmap.org/'
-                }),
-                terrain: Cesium.Terrain.fromWorldTerrain(),
-                animation: false,
-                timeline: false,
-                fullscreenButton: false
-            });
-            cesiumViewer.camera.setView({
-                destination: Cesium.Cartesian3.fromDegrees(116.4, 39.9, 50000)
-            });
-            log('Cesium viewer created.');
-            
-            // Check if milsymbol is available
-            if (typeof window.ms === 'undefined') {
-                log('ERROR: milsymbol not loaded! Make sure the CDN script is included.', 'error');
-                return;
-            }
-            log('milsymbol detected: ' + window.ms.version);
-            
-            // Create LCPLOT controller with a baseUrl that doesn't exist (to trigger fallback)
-            log('Creating LCPLOT controller...');
             try {
-                lcplotController = new lcplot.CesiumController('cesiumContainer', {}, {
-                    symbolLibraryConfig: {
-                        baseUrl: '/non-existent-icons', // will cause fallback
-                        format: 'svg',
-                        size: [64, 64],
-                        identityColors: {
-                            friend: '#0066FF',
-                            hostile: '#FF0000',
-                            neutral: '#00FF00',
-                            unknown: '#FFFF00',
-                            pending: '#00FFFF',
-                            assumed_friend: '#66CCFF',
-                            suspect: '#9900FF',
-                            exercise_pending: '#FF9900',
-                            exercise_unknown: '#996633',
-                            joker: '#FF66CC',
-                            faker: '#999999'
-                        }
-                    }
+                // Configure Cesium to avoid Ion errors
+                Cesium.Ion.defaultAccessToken = '';
+                
+                // 创建更简单的 viewer 配置，避免地形相关错误
+                cesiumViewer = new Cesium.Viewer('cesiumContainer', {
+                    baseLayer: new Cesium.OpenStreetMapImageryProvider({
+                        url: 'https://a.tile.openstreetmap.org/'
+                    }),
+                    // 完全禁用地形以避免API错误
+                    terrainProvider: undefined,
+                    animation: false,
+                    timeline: false,
+                    fullscreenButton: false,
+                    // 添加更多配置以稳定 Cesium
+                    baseLayerPicker: false,
+                    geocoder: false,
+                    homeButton: false,
+                    infoBox: false,
+                    navigationHelpButton: false,
+                    sceneModePicker: false,
+                    selectionIndicator: false
                 });
-                log('LCPLOT controller created successfully.', 'success');
-                document.getElementById('createBtn').disabled = false;
+                
+                // 地形已禁用，无需错误处理
+                
+                // 设置相机视角
+                cesiumViewer.camera.setView({
+                    destination: Cesium.Cartesian3.fromDegrees(116.4, 39.9, 50000)
+                });
+                
+                log('Cesium viewer created successfully.', 'success');
+                
+                // Check if milsymbol is available
+                if (typeof window.ms === 'undefined') {
+                    log('ERROR: milsymbol not loaded! Make sure the CDN script is included.', 'error');
+                    return;
+                }
+                log('milsymbol detected: ' + window.ms.version);
+                
+                // Create LCPLOT controller with a baseUrl that doesn't exist (to trigger fallback)
+                log('Creating LCPLOT controller...');
+                try {
+                    lcplotController = new lcplot.CesiumController('cesiumContainer', {}, {
+                        symbolLibraryConfig: {
+                            baseUrl: '/non-existent-icons', // will cause fallback
+                            format: 'svg',
+                            size: [64, 64],
+                            identityColors: {
+                                friend: '#0066FF',
+                                hostile: '#FF0000', // 敌方红色
+                                neutral: '#00FF00',
+                                unknown: '#FFFF00',
+                                pending: '#00FFFF',
+                                assumed_friend: '#66CCFF',
+                                suspect: '#9900FF',
+                                exercise_pending: '#FF9900',
+                                exercise_unknown: '#996633',
+                                joker: '#FF66CC',
+                                faker: '#999999'
+                            }
+                        }
+                    });
+                    log('LCPLOT controller created successfully.', 'success');
+                    document.getElementById('createBtn').disabled = false;
+                } catch (err) {
+                    log('ERROR creating LCPLOT controller: ' + err.message, 'error');
+                    console.error(err);
+                }
             } catch (err) {
-                log('ERROR creating controller: ' + err.message, 'error');
+                log('ERROR initializing Cesium: ' + err.message, 'error');
                 console.error(err);
             }
         }
@@ -129,25 +151,37 @@
                 log('Controller not initialized.', 'error');
                 return;
             }
-            log('Creating primitive with SIDC SFGPUCA---A--- (friend tank)...');
+            log('Creating primitive with SIDC SFGPUCA---A--- (hostile tank - red icon)...');
             try {
                 primitiveId = await lcplotController.createAdvancedPrimitive({
                     sidc: 'SFGPUCA---A---',
                     position: [116.4, 39.9, 0],
                     properties: {
-                        identity: lcplot.IdentityCode.FRIEND,
-                        name: 'Test Tank'
+                        identity: lcplot.IdentityCode.HOSTILE, // 敌方阵营，图标为红色
+                        name: 'Red Test Tank'
                     },
                     interaction: {
                         draggable: true,
-                        labelDraggable: true
+                        labelDraggable: true,
+                        showLabel: true
                     },
                     visualization: {
-                        // No billboardUrl provided, will use fallback
+                        // No billboardUrl provided, will use milsymbol fallback
+                        // Add scale to make icon larger and more visible
+                        scale: 32.0
                     }
                 });
                 log('Primitive created with ID: ' + primitiveId, 'success');
                 document.getElementById('checkBtn').disabled = false;
+                document.getElementById('cacheBtn').disabled = false;
+                
+                // 为了更容易看到图标，将相机拉近一些
+                if (cesiumViewer) {
+                    cesiumViewer.camera.setView({
+                        destination: Cesium.Cartesian3.fromDegrees(116.4, 39.9, 10000) // 10km高度
+                    });
+                    log('Camera zoomed in to 10km for better visibility.');
+                }
             } catch (err) {
                 log('ERROR creating primitive: ' + err.message, 'error');
                 console.error(err);
@@ -178,6 +212,34 @@
             }
             if (!found) {
                 log('Primitive entity not found.', 'error');
+            }
+        }
+        
+        function checkCache() {
+            if (!lcplotController || typeof lcplotController.getSymbolLibrary !== 'function') {
+                log('Cannot check cache: controller or symbol library not available.', 'error');
+                return;
+            }
+            try {
+                const symbolLibrary = lcplotController.getSymbolLibrary();
+                if (!symbolLibrary || typeof symbolLibrary.getCacheStats !== 'function') {
+                    log('Symbol library cache stats method not available.', 'error');
+                    return;
+                }
+                const stats = symbolLibrary.getCacheStats();
+                log('Symbol Library Cache Statistics:', 'info');
+                log(`  Regular cache: ${stats.cached} entries`, 'info');
+                log(`  Loading promises: ${stats.loading}`, 'info');
+                log(`  Error cache: ${stats.errors}`, 'info');
+                log(`  SVG Data URL cache: ${stats.svgCached || 0} entries`, 'info');
+                
+                // 检查缓存中是否有我们刚生成的图标
+                if (stats.svgCached > 0) {
+                    log('SVG cache is working! Generated icons are cached.', 'success');
+                }
+            } catch (err) {
+                log('ERROR checking cache stats: ' + err.message, 'error');
+                console.error(err);
             }
         }
     </script>

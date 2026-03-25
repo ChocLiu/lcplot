@@ -523,6 +523,11 @@ export class CesiumController extends MapController {
       console.error('Failed to set symbol resource config:', error);
     }
   }
+
+  getSymbolLibrary(): SymbolLibrary | null {
+    this.ensurePrimitiveSystemInitialized();
+    return this.symbolLibrary;
+  }
   
   onPrimitiveEvent(
     eventType: PrimitiveEventType,
