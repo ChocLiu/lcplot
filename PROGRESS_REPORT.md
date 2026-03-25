@@ -188,6 +188,30 @@ const tankId = await controller.createAdvancedPrimitive({
 
 ---
 **报告生成时间**：2026-03-21 18:35 GMT+8（原始报告）  
+## 2026-03-25 更新（第三阶段）
+
+### ✅ API 扩展与错误修复
+- **API 扩展**：为 `CesiumController` 添加 `getSymbolLibrary()` 公共方法，允许用户访问缓存统计信息。
+- **错误修复**：修正测试页面中的 Cesium 地形 API 错误，将 `terrainProvider: Cesium.createWorldTerrain()` 改为 `terrainProvider: undefined`。
+- **测试增强**：更新 `test-milsymbol.html`，添加缓存统计检查按钮，改进错误处理和用户界面。
+- **版本控制**：提交哈希 `7c05739`，包含所有修复和改进。
+
+### 🧪 测试状态
+- **测试页面**：`test-milsymbol.html` 已完全修复，支持：
+  1. Cesium 初始化（无地形 API 错误）
+  2. 红色敌方坦克图标创建（使用 milsymbol 生成）
+  3. 图标源验证（检查是否为 SVG Data URL）
+  4. 缓存统计查询（通过新增的 `getSymbolLibrary()` 方法）
+- **等待验证**：用户正在测试修复后的页面，确认功能正常。
+
+### 🔧 技术要点
+1. **Cesium API 兼容性**：不同版本的 Cesium 可能有不同的地形 API，禁用地形是最安全的做法。
+2. **公共 API 设计**：通过添加 `getSymbolLibrary()` 方法，保持了良好的封装性，同时提供了必要的调试功能。
+3. **渐进式增强**：milsymbol 集成是可选功能，如果未加载 milsymbol 库，系统会自动回退到 Canvas 绘制。
+
+---
+**报告生成时间**：2026-03-21 18:35 GMT+8（原始报告）  
 **第一阶段更新**：2026-03-25 06:50 GMT+8（milsymbol 集成）  
 **第二阶段更新**：2026-03-25 07:10 GMT+8（缓存优化与文档）  
-**下次更新**：完成选项B（通视分析）或UI集成测试后
+**第三阶段更新**：2026-03-25 08:35 GMT+8（API 扩展与错误修复）  
+**下次更新**：根据测试结果决定下一步（通视分析或性能优化）
