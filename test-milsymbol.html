@@ -125,6 +125,11 @@
                         }
                     });
                     log('LCPLOT controller created successfully.', 'success');
+                    // 调试：检查是否设置了全局 viewer
+                    log('Checking window.cesiumViewer: ' + (window.cesiumViewer ? 'defined' : 'undefined'), 'info');
+                    if (window.cesiumViewer) {
+                        log('window.cesiumViewer type: ' + typeof window.cesiumViewer, 'info');
+                    }
                     document.getElementById('createBtn').disabled = false;
                 } catch (err) {
                     log('ERROR creating LCPLOT controller: ' + err.message, 'error');
@@ -155,7 +160,10 @@
                 }
                 
                 // 获取 viewer（CesiumController 会将其赋值给 window.cesiumViewer）
+                log('Debug: window.cesiumViewer = ' + (window.cesiumViewer ? 'defined' : 'undefined'), 'info');
+                log('Debug: cesiumViewer = ' + (cesiumViewer ? 'defined' : 'undefined'), 'info');
                 const viewer = window.cesiumViewer || cesiumViewer;
+                log('Debug: viewer = ' + (viewer ? 'defined' : 'undefined'), 'info');
                 
                 primitiveId = await lcplotController.createAdvancedPrimitive({
                     sidc: 'SFGPUCA---A---',
