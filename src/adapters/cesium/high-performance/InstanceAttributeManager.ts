@@ -3,23 +3,18 @@
  * 负责管理几何实例的 GPU 缓冲区数据
  */
 
-import {
-  Cartesian3,
-  Buffer,
-  ComponentDatatype,
-  BufferUsage,
-  Context
-} from 'cesium';
+// Cesium 相关 - 使用命名空间导入以兼容UMD构建
+import * as Cesium from 'cesium';
 
 /**
  * 实例属性类型
  */
 export interface InstanceAttribute {
   name: string;
-  componentDatatype: number;  // ComponentDatatype
+  componentDatatype: number;  // (Cesium as any).ComponentDatatype
   componentsPerAttribute: number;
   normalize: boolean;
-  usage: number;  // BufferUsage
+  usage: number;  // (Cesium as any).BufferUsage
 }
 
 /**
@@ -84,19 +79,19 @@ export class InstanceAttributeManager {
   private config: InstanceAttributeManagerConfig;
   
   // 缓冲区管理
-  private maxInstances: number;
+  private maxInstances!: number;
   private instanceCount = 0;
   private bufferCapacity = 0;
   
   // GPU 缓冲区
-  private positionBuffer: Buffer | null = null;
-  private colorBuffer: Buffer | null = null;
-  private uvBuffer: Buffer | null = null;
-  private scaleBuffer: Buffer | null = null;
-  private rotationBuffer: Buffer | null = null;
-  private instanceIdBuffer: Buffer | null = null;
-  private visibleBuffer: Buffer | null = null;
-  private lodBuffer: Buffer | null = null;
+  private positionBuffer: any = null;
+  private colorBuffer: any = null;
+  private uvBuffer: any = null;
+  private scaleBuffer: any = null;
+  private rotationBuffer: any = null;
+  private instanceIdBuffer: any = null;
+  private visibleBuffer: any = null;
+  private lodBuffer: any = null;
   
   // CPU 数据（用于增量更新）
   private cpuPositionData: Float32Array | null = null;
@@ -110,14 +105,14 @@ export class InstanceAttributeManager {
   
   // 双缓冲（如果启用）
   private doubleBuffers: {
-    position: [Buffer | null, Buffer | null];
-    color: [Buffer | null, Buffer | null];
-    uv: [Buffer | null, Buffer | null];
-    scale: [Buffer | null, Buffer | null];
-    rotation: [Buffer | null, Buffer | null];
-    instanceId: [Buffer | null, Buffer | null];
-    visible: [Buffer | null, Buffer | null];
-    lod: [Buffer | null, Buffer | null];
+    position: [any, any];
+    color: [any, any];
+    uv: [any, any];
+    scale: [any, any];
+    rotation: [any, any];
+    instanceId: [any, any];
+    visible: [any, any];
+    lod: [any, any];
   };
   
   private currentBufferIndex = 0;
@@ -142,7 +137,7 @@ export class InstanceAttributeManager {
   };
   
   // WebGL 上下文
-  private context: Context | null = null;
+  private context: any = null;
   
   constructor(config: InstanceAttributeManagerConfig) {
     this.config = {
@@ -155,6 +150,7 @@ export class InstanceAttributeManager {
       ...config
     };
     
+    // @ts-ignore TS2783: 'maxInstances' is specified more than once
     this.maxInstances = this.config.maxInstances;
     this.bufferCapacity = Math.min(this.config.initialCapacity!, this.maxInstances);
     
@@ -176,7 +172,7 @@ export class InstanceAttributeManager {
   /**
    * 初始化 GPU 缓冲区
    */
-  initialize(context: Context): void {
+  initialize(context: any): void {
     this.context = context;
     
     // 创建 CPU 数据数组
@@ -343,59 +339,59 @@ export class InstanceAttributeManager {
     return [
       {
         name: 'instancePosition',
-        componentDatatype: ComponentDatatype.FLOAT,
+        componentDatatype: (Cesium as any).ComponentDatatype.FLOAT,
         componentsPerAttribute: 3,
         normalize: false,
-        usage: BufferUsage.STATIC_DRAW
+        usage: (Cesium as any).BufferUsage.STATIC_DRAW
       },
       {
         name: 'instanceColor',
-        componentDatatype: ComponentDatatype.UNSIGNED_BYTE,
+        componentDatatype: (Cesium as any).ComponentDatatype.UNSIGNED_BYTE,
         componentsPerAttribute: 4,
         normalize: true,
-        usage: BufferUsage.STATIC_DRAW
+        usage: (Cesium as any).BufferUsage.STATIC_DRAW
       },
       {
         name: 'instanceUv',
-        componentDatatype: ComponentDatatype.FLOAT,
+        componentDatatype: (Cesium as any).ComponentDatatype.FLOAT,
         componentsPerAttribute: 4,
         normalize: false,
-        usage: BufferUsage.STATIC_DRAW
+        usage: (Cesium as any).BufferUsage.STATIC_DRAW
       },
       {
         name: 'instanceScale',
-        componentDatatype: ComponentDatatype.FLOAT,
+        componentDatatype: (Cesium as any).ComponentDatatype.FLOAT,
         componentsPerAttribute: 1,
         normalize: false,
-        usage: BufferUsage.STATIC_DRAW
+        usage: (Cesium as any).BufferUsage.STATIC_DRAW
       },
       {
         name: 'instanceRotation',
-        componentDatatype: ComponentDatatype.FLOAT,
+        componentDatatype: (Cesium as any).ComponentDatatype.FLOAT,
         componentsPerAttribute: 1,
         normalize: false,
-        usage: BufferUsage.STATIC_DRAW
+        usage: (Cesium as any).BufferUsage.STATIC_DRAW
       },
       {
         name: 'instanceId',
-        componentDatatype: ComponentDatatype.FLOAT,
+        componentDatatype: (Cesium as any).ComponentDatatype.FLOAT,
         componentsPerAttribute: 1,
         normalize: false,
-        usage: BufferUsage.STATIC_DRAW
+        usage: (Cesium as any).BufferUsage.STATIC_DRAW
       },
       {
         name: 'instanceVisible',
-        componentDatatype: ComponentDatatype.UNSIGNED_BYTE,
+        componentDatatype: (Cesium as any).ComponentDatatype.UNSIGNED_BYTE,
         componentsPerAttribute: 1,
         normalize: false,
-        usage: BufferUsage.STATIC_DRAW
+        usage: (Cesium as any).BufferUsage.STATIC_DRAW
       },
       {
         name: 'instanceLod',
-        componentDatatype: ComponentDatatype.UNSIGNED_BYTE,
+        componentDatatype: (Cesium as any).ComponentDatatype.UNSIGNED_BYTE,
         componentsPerAttribute: 1,
         normalize: false,
-        usage: BufferUsage.STATIC_DRAW
+        usage: (Cesium as any).BufferUsage.STATIC_DRAW
       }
     ];
   }
@@ -404,14 +400,14 @@ export class InstanceAttributeManager {
    * 获取 GPU 缓冲区
    */
   getGpuBuffers(): {
-    position: Buffer | null;
-    color: Buffer | null;
-    uv: Buffer | null;
-    scale: Buffer | null;
-    rotation: Buffer | null;
-    instanceId: Buffer | null;
-    visible: Buffer | null;
-    lod: Buffer | null;
+    position: any|any;
+    color: any|any;
+    uv: any|any;
+    scale: any|any;
+    rotation: any|any;
+    instanceId: any|any;
+    visible: any|any;
+    lod: any|any;
   } {
     if (this.config.enableDoubleBuffer) {
       const buffers = this.doubleBuffers;
@@ -636,7 +632,7 @@ export class InstanceAttributeManager {
     }
     
     const createBuffer = (typedArray: ArrayBufferView, usage: number) => {
-      return new Buffer({
+      return new (Cesium as any).Buffer({
         context: this.context!,
         typedArray: typedArray,
         usage: usage
@@ -646,42 +642,42 @@ export class InstanceAttributeManager {
     // 创建主缓冲区
     this.positionBuffer = createBuffer(
       this.cpuPositionData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.colorBuffer = createBuffer(
       this.cpuColorData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.uvBuffer = createBuffer(
       this.cpuUvData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.scaleBuffer = createBuffer(
       this.cpuScaleData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.rotationBuffer = createBuffer(
       this.cpuRotationData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.instanceIdBuffer = createBuffer(
       this.cpuInstanceIdData!,
-      BufferUsage.STATIC_DRAW
+      (Cesium as any).BufferUsage.STATIC_DRAW
     );
     
     this.visibleBuffer = createBuffer(
       this.cpuVisibleData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.lodBuffer = createBuffer(
       this.cpuLodData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     // 如果启用双缓冲，创建第二组缓冲区
@@ -697,7 +693,7 @@ export class InstanceAttributeManager {
     if (!this.context) return;
     
     const createBuffer = (typedArray: ArrayBufferView, usage: number) => {
-      return new Buffer({
+      return new (Cesium as any).Buffer({
         context: this.context!,
         typedArray: typedArray,
         usage: usage
@@ -707,42 +703,42 @@ export class InstanceAttributeManager {
     // 创建第二组缓冲区（相同数据）
     this.doubleBuffers.position[1] = createBuffer(
       this.cpuPositionData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.doubleBuffers.color[1] = createBuffer(
       this.cpuColorData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.doubleBuffers.uv[1] = createBuffer(
       this.cpuUvData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.doubleBuffers.scale[1] = createBuffer(
       this.cpuScaleData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.doubleBuffers.rotation[1] = createBuffer(
       this.cpuRotationData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.doubleBuffers.instanceId[1] = createBuffer(
       this.cpuInstanceIdData!,
-      BufferUsage.STATIC_DRAW
+      (Cesium as any).BufferUsage.STATIC_DRAW
     );
     
     this.doubleBuffers.visible[1] = createBuffer(
       this.cpuVisibleData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
     
     this.doubleBuffers.lod[1] = createBuffer(
       this.cpuLodData!,
-      BufferUsage.STREAM_DRAW
+      (Cesium as any).BufferUsage.STREAM_DRAW
     );
   }
   
@@ -926,7 +922,7 @@ export class InstanceAttributeManager {
    * 重新分配 CPU 数据
    */
   private reallocateCpuData(newCapacity: number): void {
-    const reallocate = <T extends ArrayBufferView>(
+    const reallocate = <T extends Float32Array | Uint8Array>(
       oldArray: T | null,
       constructor: new (length: number) => T
     ): T => {
@@ -937,9 +933,7 @@ export class InstanceAttributeManager {
       const newArray = new constructor(newCapacity * this.getComponentsPerAttribute(constructor));
       const copyLength = Math.min(oldArray.length, newArray.length);
       
-      if (oldArray instanceof Float32Array || oldArray instanceof Uint8Array) {
-        newArray.set(oldArray.subarray(0, copyLength));
-      }
+      newArray.set(oldArray.subarray(0, copyLength));
       
       return newArray;
     };

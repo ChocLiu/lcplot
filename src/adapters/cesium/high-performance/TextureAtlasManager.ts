@@ -4,14 +4,8 @@
  */
 
 import { SIDC } from '../../../types';
-import {
-  Texture,
-  PixelFormat,
-  Sampler,
-  TextureMinificationFilter,
-  TextureMagnificationFilter,
-  TextureWrap
-} from 'cesium';
+// Cesium 相关 - 使用命名空间导入以兼容UMD构建
+import * as Cesium from 'cesium';
 
 /**
  * UV 坐标（纹理坐标）
@@ -80,7 +74,7 @@ export class TextureAtlasManager {
   // 纹理资源
   private atlases: HTMLCanvasElement[] = [];
   private contexts: CanvasRenderingContext2D[] = [];
-  private textures: Texture[] = [];
+  private textures: any[] = [];
   private currentX = 0;
   private currentY = 0;
   private currentRowHeight = 0;
@@ -220,7 +214,7 @@ export class TextureAtlasManager {
   /**
    * 获取纹理图集
    */
-  getAtlasTexture(index: number = 0): Texture | null {
+  getAtlasTexture(index: number = 0): any | null {
     if (index < 0 || index >= this.textures.length) {
       return null;
     }
@@ -230,7 +224,7 @@ export class TextureAtlasManager {
   /**
    * 获取所有纹理图集
    */
-  getAllAtlasTextures(): Texture[] {
+  getAllAtlasTextures(): any[] {
     return [...this.textures];
   }
   
@@ -558,15 +552,15 @@ export class TextureAtlasManager {
     const canvas = this.atlases[atlasIndex];
     
     // 创建 Cesium 纹理
-    const texture = new Texture({
+    const texture = new (Cesium as any).Texture({
       context: (window as any).cesiumViewer?.scene?.context,
       source: canvas,
-      pixelFormat: PixelFormat.RGBA,
-      sampler: new Sampler({
-        minificationFilter: TextureMinificationFilter.LINEAR,
-        magnificationFilter: TextureMagnificationFilter.LINEAR,
-        wrapS: TextureWrap.CLAMP_TO_EDGE,
-        wrapT: TextureWrap.CLAMP_TO_EDGE
+      pixelFormat: (Cesium as any).PixelFormat.RGBA,
+      sampler: new (Cesium as any).Sampler({
+        minificationFilter: (Cesium as any).TextureMinificationFilter.LINEAR,
+        magnificationFilter: (Cesium as any).TextureMagnificationFilter.LINEAR,
+        wrapS: (Cesium as any).TextureWrap.CLAMP_TO_EDGE,
+        wrapT: (Cesium as any).TextureWrap.CLAMP_TO_EDGE
       })
     });
     

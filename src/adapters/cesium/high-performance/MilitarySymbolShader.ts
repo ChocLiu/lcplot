@@ -185,27 +185,27 @@ export class MilitarySymbolShader {
     // 启用实例属性
     if (this.attributes.instancePosition >= 0) {
       this.gl.enableVertexAttribArray(this.attributes.instancePosition);
-      this.gl.vertexAttribDivisor(this.attributes.instancePosition, 1);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instancePosition, 1);
     }
     if (this.attributes.instanceColor >= 0) {
       this.gl.enableVertexAttribArray(this.attributes.instanceColor);
-      this.gl.vertexAttribDivisor(this.attributes.instanceColor, 1);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceColor, 1);
     }
     if (this.attributes.instanceUv >= 0) {
       this.gl.enableVertexAttribArray(this.attributes.instanceUv);
-      this.gl.vertexAttribDivisor(this.attributes.instanceUv, 1);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceUv, 1);
     }
     if (this.attributes.instanceScale >= 0) {
       this.gl.enableVertexAttribArray(this.attributes.instanceScale);
-      this.gl.vertexAttribDivisor(this.attributes.instanceScale, 1);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceScale, 1);
     }
     if (this.attributes.instanceRotation >= 0) {
       this.gl.enableVertexAttribArray(this.attributes.instanceRotation);
-      this.gl.vertexAttribDivisor(this.attributes.instanceRotation, 1);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceRotation, 1);
     }
     if (this.attributes.instanceId >= 0) {
       this.gl.enableVertexAttribArray(this.attributes.instanceId);
-      this.gl.vertexAttribDivisor(this.attributes.instanceId, 1);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceId, 1);
     }
   }
   
@@ -224,27 +224,27 @@ export class MilitarySymbolShader {
     // 禁用实例属性
     if (this.attributes.instancePosition >= 0) {
       this.gl.disableVertexAttribArray(this.attributes.instancePosition);
-      this.gl.vertexAttribDivisor(this.attributes.instancePosition, 0);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instancePosition, 0);
     }
     if (this.attributes.instanceColor >= 0) {
       this.gl.disableVertexAttribArray(this.attributes.instanceColor);
-      this.gl.vertexAttribDivisor(this.attributes.instanceColor, 0);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceColor, 0);
     }
     if (this.attributes.instanceUv >= 0) {
       this.gl.disableVertexAttribArray(this.attributes.instanceUv);
-      this.gl.vertexAttribDivisor(this.attributes.instanceUv, 0);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceUv, 0);
     }
     if (this.attributes.instanceScale >= 0) {
       this.gl.disableVertexAttribArray(this.attributes.instanceScale);
-      this.gl.vertexAttribDivisor(this.attributes.instanceScale, 0);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceScale, 0);
     }
     if (this.attributes.instanceRotation >= 0) {
       this.gl.disableVertexAttribArray(this.attributes.instanceRotation);
-      this.gl.vertexAttribDivisor(this.attributes.instanceRotation, 0);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceRotation, 0);
     }
     if (this.attributes.instanceId >= 0) {
       this.gl.disableVertexAttribArray(this.attributes.instanceId);
-      this.gl.vertexAttribDivisor(this.attributes.instanceId, 0);
+      (this.gl as any).vertexAttribDivisor(this.attributes.instanceId, 0);
     }
   }
   

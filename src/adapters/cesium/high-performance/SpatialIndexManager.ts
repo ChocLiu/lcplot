@@ -199,7 +199,10 @@ export class SpatialIndexManager {
     }
     
     // 检查移动距离是否超过阈值
-    const distance = this.calculateDistance(oldPosition, newPosition);
+    const distance = this.calculateDistance(
+      [oldPosition[0], oldPosition[1]],
+      [newPosition[0], newPosition[1]]
+    );
     if (distance > this.movementThreshold) {
       this.instancePositions.set(id, newPosition);
       this.updateInstanceBounds(id, newPosition);

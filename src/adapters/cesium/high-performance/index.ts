@@ -2,15 +2,28 @@
  * 高性能渲染器模块导出
  */
 
-export { TextureAtlasManager, UVCoordinates, TextureAtlasConfig, TextureAtlasStats } from './TextureAtlasManager';
-export { HighPerformancePrimitiveRenderer, HighPerformanceRendererConfig, PerformanceStats } from './HighPerformancePrimitiveRenderer';
-export { MilitarySymbolShader, ShaderConfig, ShaderUniforms, ShaderAttributes } from './MilitarySymbolShader';
-export { InstanceAttributeManager, InstanceAttribute, InstanceData, InstanceUpdate, BufferStats, InstanceAttributeManagerConfig } from './InstanceAttributeManager';
-export { SpatialIndexManager, SpatialIndexType, SpatialIndexConfig, SpatialNode, QueryResult, LodLevel, VisibleInstanceSet } from './SpatialIndexManager';
+// 值导出（类、函数等）
+export { TextureAtlasManager } from './TextureAtlasManager';
+export { HighPerformancePrimitiveRenderer } from './HighPerformancePrimitiveRenderer';
+export { MilitarySymbolShader } from './MilitarySymbolShader';
+export { InstanceAttributeManager } from './InstanceAttributeManager';
+export { SpatialIndexManager } from './SpatialIndexManager';
+
+// 类型导出（接口、类型别名等）
+export type { UVCoordinates, TextureAtlasConfig, TextureAtlasStats } from './TextureAtlasManager';
+export type { HighPerformanceRendererConfig, PerformanceStats } from './HighPerformancePrimitiveRenderer';
+export type { ShaderConfig, ShaderUniforms, ShaderAttributes } from './MilitarySymbolShader';
+export type { InstanceAttribute, InstanceData, InstanceUpdate, BufferStats, InstanceAttributeManagerConfig } from './InstanceAttributeManager';
+export type { SpatialIndexType, SpatialIndexConfig, SpatialNode, QueryResult, LodLevel, VisibleInstanceSet } from './SpatialIndexManager';
 
 /**
  * 高性能渲染器工厂
  */
+// 工厂类内部使用的导入
+import type { HighPerformanceRendererConfig } from './HighPerformancePrimitiveRenderer';
+import { HighPerformancePrimitiveRenderer } from './HighPerformancePrimitiveRenderer';
+import { TextureAtlasManager } from './TextureAtlasManager';
+
 export class HighPerformanceRendererFactory {
   /**
    * 创建完整的渲染器
