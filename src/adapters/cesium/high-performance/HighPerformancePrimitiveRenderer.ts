@@ -124,9 +124,9 @@ export class HighPerformancePrimitiveRenderer {
   private geometry: Geometry | null = null;
   private appearance: Appearance | null = null;
   private instanceAttributes: InstanceAttributes | null = null;
-  private vertexBuffer: Cesium.Buffer | null = null;
-  private indexBuffer: Cesium.Buffer | null = null;
-  private instanceBuffer: Cesium.Buffer | null = null;
+  private vertexBuffer: Buffer | null = null;
+  private indexBuffer: Buffer | null = null;
+  private instanceBuffer: Buffer | null = null;
   
   // 性能优化
   private dirtyInstances = new Set<string>();  // 需要更新的实例
@@ -625,14 +625,14 @@ export class HighPerformancePrimitiveRenderer {
     });
     
     // 创建纹理坐标缓冲区
-    const texCoordBuffer = new Cesium.Buffer({
+    const texCoordBuffer = new Buffer({
       context: this.viewer.scene.context,
       typedArray: texCoords,
       usage: BufferUsage.STATIC_DRAW
     });
     
     // 创建索引缓冲区
-    this.indexBuffer = new Cesium.Buffer({
+    this.indexBuffer = new Buffer({
       context: this.viewer.scene.context,
       typedArray: indices,
       usage: BufferUsage.STATIC_DRAW,
@@ -661,7 +661,7 @@ export class HighPerformancePrimitiveRenderer {
       attributes: attributes,
       indices: this.indexBuffer,
       primitiveType: PrimitiveType.TRIANGLES,
-      boundingSphere: Cesium.BoundingSphere.fromVertices(positions)
+      boundingSphere: BoundingSphere.fromVertices(positions)
     });
     
     console.log('Base geometry created');

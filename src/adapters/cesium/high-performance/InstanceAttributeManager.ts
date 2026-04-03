@@ -89,14 +89,14 @@ export class InstanceAttributeManager {
   private bufferCapacity = 0;
   
   // GPU 缓冲区
-  private positionBuffer: Cesium.Buffer | null = null;
-  private colorBuffer: Cesium.Buffer | null = null;
-  private uvBuffer: Cesium.Buffer | null = null;
-  private scaleBuffer: Cesium.Buffer | null = null;
-  private rotationBuffer: Cesium.Buffer | null = null;
-  private instanceIdBuffer: Cesium.Buffer | null = null;
-  private visibleBuffer: Cesium.Buffer | null = null;
-  private lodBuffer: Cesium.Buffer | null = null;
+  private positionBuffer: Buffer | null = null;
+  private colorBuffer: Buffer | null = null;
+  private uvBuffer: Buffer | null = null;
+  private scaleBuffer: Buffer | null = null;
+  private rotationBuffer: Buffer | null = null;
+  private instanceIdBuffer: Buffer | null = null;
+  private visibleBuffer: Buffer | null = null;
+  private lodBuffer: Buffer | null = null;
   
   // CPU 数据（用于增量更新）
   private cpuPositionData: Float32Array | null = null;
@@ -110,14 +110,14 @@ export class InstanceAttributeManager {
   
   // 双缓冲（如果启用）
   private doubleBuffers: {
-    position: [Cesium.Buffer | null, Cesium.Buffer | null];
-    color: [Cesium.Buffer | null, Cesium.Buffer | null];
-    uv: [Cesium.Buffer | null, Cesium.Buffer | null];
-    scale: [Cesium.Buffer | null, Cesium.Buffer | null];
-    rotation: [Cesium.Buffer | null, Cesium.Buffer | null];
-    instanceId: [Cesium.Buffer | null, Cesium.Buffer | null];
-    visible: [Cesium.Buffer | null, Cesium.Buffer | null];
-    lod: [Cesium.Buffer | null, Cesium.Buffer | null];
+    position: [Buffer | null, Buffer | null];
+    color: [Buffer | null, Buffer | null];
+    uv: [Buffer | null, Buffer | null];
+    scale: [Buffer | null, Buffer | null];
+    rotation: [Buffer | null, Buffer | null];
+    instanceId: [Buffer | null, Buffer | null];
+    visible: [Buffer | null, Buffer | null];
+    lod: [Buffer | null, Buffer | null];
   };
   
   private currentBufferIndex = 0;
@@ -142,7 +142,7 @@ export class InstanceAttributeManager {
   };
   
   // WebGL 上下文
-  private context: Cesium.Context | null = null;
+  private context: Context | null = null;
   
   constructor(config: InstanceAttributeManagerConfig) {
     this.config = {
@@ -176,7 +176,7 @@ export class InstanceAttributeManager {
   /**
    * 初始化 GPU 缓冲区
    */
-  initialize(context: Cesium.Context): void {
+  initialize(context: Context): void {
     this.context = context;
     
     // 创建 CPU 数据数组
@@ -404,14 +404,14 @@ export class InstanceAttributeManager {
    * 获取 GPU 缓冲区
    */
   getGpuBuffers(): {
-    position: Cesium.Buffer | null;
-    color: Cesium.Buffer | null;
-    uv: Cesium.Buffer | null;
-    scale: Cesium.Buffer | null;
-    rotation: Cesium.Buffer | null;
-    instanceId: Cesium.Buffer | null;
-    visible: Cesium.Buffer | null;
-    lod: Cesium.Buffer | null;
+    position: Buffer | null;
+    color: Buffer | null;
+    uv: Buffer | null;
+    scale: Buffer | null;
+    rotation: Buffer | null;
+    instanceId: Buffer | null;
+    visible: Buffer | null;
+    lod: Buffer | null;
   } {
     if (this.config.enableDoubleBuffer) {
       const buffers = this.doubleBuffers;
@@ -636,7 +636,7 @@ export class InstanceAttributeManager {
     }
     
     const createBuffer = (typedArray: ArrayBufferView, usage: number) => {
-      return new Cesium.Buffer({
+      return new Buffer({
         context: this.context!,
         typedArray: typedArray,
         usage: usage
@@ -697,7 +697,7 @@ export class InstanceAttributeManager {
     if (!this.context) return;
     
     const createBuffer = (typedArray: ArrayBufferView, usage: number) => {
-      return new Cesium.Buffer({
+      return new Buffer({
         context: this.context!,
         typedArray: typedArray,
         usage: usage

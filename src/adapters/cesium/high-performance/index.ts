@@ -5,6 +5,8 @@
 export { TextureAtlasManager, UVCoordinates, TextureAtlasConfig, TextureAtlasStats } from './TextureAtlasManager';
 export { HighPerformancePrimitiveRenderer, HighPerformanceRendererConfig, PerformanceStats } from './HighPerformancePrimitiveRenderer';
 export { MilitarySymbolShader, ShaderConfig, ShaderUniforms, ShaderAttributes } from './MilitarySymbolShader';
+export { InstanceAttributeManager, InstanceAttribute, InstanceData, InstanceUpdate, BufferStats, InstanceAttributeManagerConfig } from './InstanceAttributeManager';
+export { SpatialIndexManager, SpatialIndexType, SpatialIndexConfig, SpatialNode, QueryResult, LodLevel, VisibleInstanceSet } from './SpatialIndexManager';
 
 /**
  * 高性能渲染器工厂
