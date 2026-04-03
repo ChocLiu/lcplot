@@ -154,7 +154,7 @@
                 if (typeof window.ms === 'undefined') {
                     // 动态加载 milsymbol
                     const script = document.createElement('script');
-                    script.src = 'https://unpkg.com/milsymbol@latest/dist/milsymbol.js';
+                    script.src = './libs/milsymbol.js';
                     script.onload = () => {
                         log('milsymbol 库加载成功');
                         generateTestSymbol();
@@ -416,7 +416,7 @@
             if (typeof window.ms === 'undefined') {
                 log('正在加载 milsymbol 库...');
                 const script = document.createElement('script');
-                script.src = 'https://unpkg.com/milsymbol@latest/dist/milsymbol.js';
+                script.src = './libs/milsymbol.js';
                 script.onload = () => log('milsymbol 库加载成功');
                 script.onerror = () => log('警告: 无法加载 milsymbol 库');
                 document.head.appendChild(script);

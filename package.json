@@ -14,7 +14,9 @@
     "build:types": "tsc --emitDeclarationOnly",
     "clean": "rm -rf dist",
     "prepack": "npm run build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "copy:milsymbol": "mkdir -p libs && cp node_modules/milsymbol/dist/milsymbol.js libs/",
+    "postinstall": "npm run copy:milsymbol"
   },
   "keywords": [
     "gis",
