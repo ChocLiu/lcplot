@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>纹理图集管理器测试</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 20px; }
+        
+        .test-section { 
+            background: white; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h2 { color: #444; margin-bottom: 15px; }
+        
+        button { 
+            padding: 10px 20px; 
+            background: #4a6fa5; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover { background: #3a5a85; }
+        button:disabled { background: #ccc; }
+        
+        .result { 
+            margin-top: 15px; 
+            padding: 15px; 
+            background: #f8f9fa; 
+            border-radius: 4px; 
+            font-family: monospace; 
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        
+        .canvas-container { 
+            margin-top: 15px; 
+            border: 1px solid #ddd; 
+            padding: 10px;
+            border-radius: 4px;
+        }
+        canvas { 
+            max-width: 100%; 
+            border: 1px solid #eee;
+            background: white;
+        }
+        
+        .log { 
+            margin-top: 10px; 
+            padding: 10px; 
+            background: #f0f0f0; 
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LCPLOT 纹理图集管理器测试</h1>
+        <div class="subtitle">验证 MIL-STD-2525D 符号纹理生成与打包</div>
+        
+        <div class="test-section">
+            <h2>1. 基础功能测试</h2>
+            <button onclick="testBasicCanvas()">测试 Canvas 绘图</button>
+            <button onclick="testMilsymbolSVG()">测试 milsymbol SVG 生成</button>
+            <button onclick="testTexturePacking()">测试纹理打包算法</button>
+            
+            <div class="canvas-container">
+                <canvas id="testCanvas" width="512" height="512"></canvas>
+            </div>
+            
+            <div id="result-basic" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>2. 符号生成测试</h2>
+            <div>
+                <label for="sidcInput">SIDC 编码：</label>
+                <input type="text" id="sidcInput" value="SFGPUCI---H---" size="20">
+                <button onclick="generateSymbol()">生成符号</button>
+                <button onclick="generateMultiple()">生成多个符号</button>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="symbolCanvas" width="1024" height="256"></canvas>
+            </div>
+            
+            <div id="result-symbol" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>3. 控制台日志</h2>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // 全局日志函数
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${time}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function showResult(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            log(message);
+        }
+        
+        // 测试 Canvas 基础功能
+        function testBasicCanvas() {
+            const canvas = document.getElementById('testCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 清空画布
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制测试图形
+            ctx.fillStyle = '#4a6fa5';
+            ctx.fillRect(50, 50, 100, 100);
+            
+            ctx.fillStyle = '#c62828';
+            ctx.beginPath();
+            ctx.arc(300, 100, 50, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#2e7d32';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(200, 200, 150, 100);
+            
+            showResult('result-basic', 'Canvas 2D 功能正常 - 绘制了矩形、圆形和边框');
+        }
+        
+        // 测试 milsymbol SVG 生成
+        function testMilsymbolSVG() {
+            try {
+                // 检查 milsymbol 库是否可用
+                if (typeof window.ms === 'undefined') {
+                    // 动态加载 milsymbol
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/milsymbol@latest/dist/milsymbol.js';
+                    script.onload = () => {
+                        log('milsymbol 库加载成功');
+                        generateTestSymbol();
+                    };
+                    script.onerror = () => {
+                        showResult('result-basic', '错误: 无法加载 milsymbol 库');
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    generateTestSymbol();
+                }
+            } catch (error) {
+                showResult('result-basic', '错误: ' + error.message);
+            }
+        }
+        
+        function generateTestSymbol() {
+            try {
+                // 创建军事符号
+                const symbol = new window.ms.Symbol('SFGPUCI---H---', {
+                    size: 100,
+                    fillColor: 'rgb(0, 100, 255)',
+                    strokeColor: 'rgb(255, 255, 255)',
+                    strokeWidth: 2
+                });
+                
+                const svgString = symbol.asSVG();
+                showResult('result-basic', `SVG 生成成功，大小: ${svgString.length} 字符`);
+                
+                // 将 SVG 转换为 Data URL 显示在 Canvas 上
+                const svgBlob = new Blob([svgString], {type: 'image/svg+xml'});
+                const url = URL.createObjectURL(svgBlob);
+                
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.getElementById('testCanvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 50, 50, 200, 200);
+                    URL.revokeObjectURL(url);
+                    log('SVG 图像绘制到 Canvas');
+                };
+                img.src = url;
+                
+            } catch (error) {
+                showResult('result-basic', 'milsymbol 错误: ' + error.message);
+            }
+        }
+        
+        // 测试纹理打包算法（简化）
+        function testTexturePacking() {
+            const canvas = document.getElementById('testCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 模拟纹理打包：将多个小矩形放入大画布
+            const rects = [
+                {id: 1, width: 64, height: 64},
+                {id: 2, width: 128, height: 64},
+                {id: 3, width: 64, height: 128},
+                {id: 4, width: 96, height: 96},
+                {id: 5, width: 32, height: 32},
+                {id: 6, width: 64, height: 32},
+                {id: 7, width: 48, height: 48},
+                {id: 8, width: 80, height: 80}
+            ];
+            
+            // 简单的打包算法：按高度排序，逐行放置
+            rects.sort((a, b) => b.height - a.height);
+            
+            let x = 10, y = 10;
+            let maxHeightInRow = 0;
+            let rowWidth = 0;
+            const padding = 4;
+            
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            rects.forEach((rect, index) => {
+                // 检查是否需要换行
+                if (x + rect.width + padding > canvas.width - 10) {
+                    x = 10;
+                    y += maxHeightInRow + padding;
+                    maxHeightInRow = 0;
+                }
+                
+                // 绘制矩形
+                ctx.fillStyle = `hsl(${index * 40}, 70%, 70%)`;
+                ctx.fillRect(x, y, rect.width, rect.height);
+                
+                ctx.fillStyle = '#333';
+                ctx.font = '12px Arial';
+                ctx.fillText(`${rect.id}`, x + 5, y + 15);
+                ctx.fillText(`${rect.width}×${rect.height}`, x + 5, y + 30);
+                
+                // 绘制边框
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, rect.width, rect.height);
+                
+                // 更新位置
+                x += rect.width + padding;
+                maxHeightInRow = Math.max(maxHeightInRow, rect.height);
+            });
+            
+            const efficiency = calculatePackingEfficiency(rects, canvas.width, y + maxHeightInRow);
+            showResult('result-basic', `纹理打包完成 - 矩形数: ${rects.length}, 空间利用率: ${efficiency.toFixed(1)}%`);
+        }
+        
+        function calculatePackingEfficiency(rects, totalWidth, totalHeight) {
+            const totalArea = rects.reduce((sum, rect) => sum + rect.width * rect.height, 0);
+            const atlasArea = totalWidth * totalHeight;
+            return (totalArea / atlasArea) * 100;
+        }
+        
+        // 生成单个符号
+        function generateSymbol() {
+            const sidc = document.getElementById('sidcInput').value || 'SFGPUCI---H---';
+            
+            if (typeof window.ms === 'undefined') {
+                showResult('result-symbol', '请先加载 milsymbol 库');
+                return;
+            }
+            
+            try {
+                const symbol = new window.ms.Symbol(sidc, {
+                    size: 64,
+                    fillColor: 'rgb(0, 100, 255)',
+                    strokeColor: 'rgb(255, 255, 255)',
+                    strokeWidth: 1
+                });
+                
+                const svgString = symbol.asSVG();
+                const svgBlob = new Blob([svgString], {type: 'image/svg+xml'});
+                const url = URL.createObjectURL(svgBlob);
+                
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.getElementById('symbolCanvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 绘制背景网格
+                    ctx.fillStyle = '#fafafa';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 绘制网格线
+                    ctx.strokeStyle = '#e0e0e0';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < canvas.width; i += 32) {
+                        ctx.beginPath();
+                        ctx.moveTo(i, 0);
+                        ctx.lineTo(i, canvas.height);
+                        ctx.stroke();
+                    }
+                    for (let i = 0; i < canvas.height; i += 32) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, i);
+                        ctx.lineTo(canvas.width, i);
+                        ctx.stroke();
+                    }
+                    
+                    // 绘制符号
+                    ctx.drawImage(img, 50, 50, 128, 128);
+                    
+                    // 显示信息
+                    ctx.fillStyle = '#333';
+                    ctx.font = '14px Arial';
+                    ctx.fillText(`SIDC: ${sidc}`, 200, 100);
+                    ctx.fillText(`尺寸: 128×128 像素`, 200, 120);
+                    
+                    URL.revokeObjectURL(url);
+                    showResult('result-symbol', `符号 ${sidc} 生成成功`);
+                };
+                img.src = url;
+                
+            } catch (error) {
+                showResult('result-symbol', `错误: ${error.message}`);
+            }
+        }
+        
+        // 生成多个符号
+        function generateMultiple() {
+            const sidcList = [
+                'SFGPUCI---H---',  // 友方步兵
+                'SFGPUCD---H---',  // 友方骑兵
+                'SFGPUCA---H---',  // 友方装甲
+                'SFGPUCF---H---',  // 友方炮兵
+                'SHGPUCI---H---',  // 敌方步兵
+                'SHGPUCD---H---',  // 敌方骑兵
+                'SHGPUCA---H---',  // 敌方装甲
+                'SHGPUCF---H---'   // 敌方炮兵
+            ];
+            
+            if (typeof window.ms === 'undefined') {
+                showResult('result-symbol', '请先加载 milsymbol 库');
+                return;
+            }
+            
+            const canvas = document.getElementById('symbolCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制背景
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            let x = 20, y = 20;
+            const size = 64;
+            const spacing = 20;
+            
+            sidcList.forEach((sidc, index) => {
+                try {
+                    const symbol = new window.ms.Symbol(sidc, {
+                        size: size,
+                        fillColor: sidc.startsWith('SF') ? 'rgb(0, 100, 255)' : 'rgb(200, 50, 50)',
+                        strokeColor: 'rgb(255, 255, 255)',
+                        strokeWidth: 1
+                    });
+                    
+                    const svgString = symbol.asSVG();
+                    const svgBlob = new Blob([svgString], {type: 'image/svg+xml'});
+                    const url = URL.createObjectURL(svgBlob);
+                    
+                    const img = new Image();
+                    img.onload = function() {
+                        ctx.drawImage(img, x, y, size, size);
+                        
+                        // 绘制标签
+                        ctx.fillStyle = '#333';
+                        ctx.font = '10px Arial';
+                        ctx.fillText(sidc.substring(0, 8), x, y + size + 12);
+                        
+                        URL.revokeObjectURL(url);
+                        
+                        // 更新位置
+                        x += size + spacing;
+                        if (x + size > canvas.width - 20) {
+                            x = 20;
+                            y += size + spacing + 20;
+                        }
+                    };
+                    img.src = url;
+                    
+                } catch (error) {
+                    log(`符号 ${sidc} 生成失败: ${error.message}`);
+                }
+            });
+            
+            showResult('result-symbol', `生成 ${sidcList.length} 个军事符号`);
+        }
+        
+        // 初始化
+        window.onload = function() {
+            log('测试页面加载完成');
+            log('点击按钮开始测试纹理图集管理器功能');
+            
+            // 自动加载 milsymbol 库
+            if (typeof window.ms === 'undefined') {
+                log('正在加载 milsymbol 库...');
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/milsymbol@latest/dist/milsymbol.js';
+                script.onload = () => log('milsymbol 库加载成功');
+                script.onerror = () => log('警告: 无法加载 milsymbol 库');
+                document.head.appendChild(script);
+            } else {
+                log('milsymbol 库已加载');
+            }
+        };
+    </script>
+</body>
+</html>
