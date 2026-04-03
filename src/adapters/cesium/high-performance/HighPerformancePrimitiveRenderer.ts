@@ -3,7 +3,29 @@
  * 基于 Cesium Primitive API 实现 MIL-STD-2525D 符号的高性能渲染
  */
 
-import { Viewer, Primitive, GeometryInstance, Geometry, Appearance, Matrix4, Cartesian3 } from 'cesium';
+import {
+  Viewer,
+  Primitive,
+  GeometryInstance,
+  Geometry,
+  Appearance,
+  Matrix4,
+  Cartesian3,
+  Buffer,
+  ComponentDatatype,
+  IndexDatatype,
+  BufferUsage,
+  ShaderProgram,
+  PrimitiveType,
+  BoundingSphere,
+  Texture,
+  Sampler,
+  TextureMinificationFilter,
+  TextureMagnificationFilter,
+  TextureWrap,
+  GeometryAttributes,
+  GeometryAttribute
+} from 'cesium';
 import {
   AdvancedPrimitive,
   PrimitiveCreateOptions,
@@ -169,8 +191,8 @@ export class HighPerformancePrimitiveRenderer {
       // 创建外观（着色器）
       this.createAppearance();
       
-      // 创建 Primitive
-      this.createPrimitive();
+      // 创建 Cesium Primitive
+      this.createCesiumPrimitive();
       
       // 绑定渲染循环
       this.bindToRenderLoop();
@@ -596,25 +618,25 @@ export class HighPerformancePrimitiveRenderer {
     ]);
     
     // 创建顶点缓冲区
-    this.vertexBuffer = new Cesium.Buffer({
+    this.vertexBuffer = new Buffer({
       context: this.viewer.scene.context,
       typedArray: positions,
-      usage: Cesium.BufferUsage.STATIC_DRAW
+      usage: BufferUsage.STATIC_DRAW
     });
     
     // 创建纹理坐标缓冲区
     const texCoordBuffer = new Cesium.Buffer({
       context: this.viewer.scene.context,
       typedArray: texCoords,
-      usage: Cesium.BufferUsage.STATIC_DRAW
+      usage: BufferUsage.STATIC_DRAW
     });
     
     // 创建索引缓冲区
     this.indexBuffer = new Cesium.Buffer({
       context: this.viewer.scene.context,
       typedArray: indices,
-      usage: Cesium.BufferUsage.STATIC_DRAW,
-      indexDatatype: Cesium.IndexDatatype.UNSIGNED_SHORT
+      usage: BufferUsage.STATIC_DRAW,
+      indexDatatype: IndexDatatype.UNSIGNED_SHORT
     });
     
     // 创建几何属性
@@ -622,14 +644,14 @@ export class HighPerformancePrimitiveRenderer {
       {
         index: 0,
         vertexBuffer: this.vertexBuffer,
-        componentDatatype: Cesium.ComponentDatatype.FLOAT,
+        componentDatatype: ComponentDatatype.FLOAT,
         componentsPerAttribute: 3,
         normalize: false
       },
       {
         index: 1,
         vertexBuffer: texCoordBuffer,
-        componentDatatype: Cesium.ComponentDatatype.FLOAT,
+        componentDatatype: ComponentDatatype.FLOAT,
         componentsPerAttribute: 2,
         normalize: false
       }
@@ -638,7 +660,7 @@ export class HighPerformancePrimitiveRenderer {
     this.geometry = new Geometry({
       attributes: attributes,
       indices: this.indexBuffer,
-      primitiveType: Cesium.PrimitiveType.TRIANGLES,
+      primitiveType: PrimitiveType.TRIANGLES,
       boundingSphere: Cesium.BoundingSphere.fromVertices(positions)
     });
     
@@ -683,9 +705,9 @@ export class HighPerformancePrimitiveRenderer {
   }
   
   /**
-   * 创建 Primitive
+   * 创建 Cesium Primitive 对象
    */
-  private createPrimitive(): void {
+  private createCesiumPrimitive(): void {
     this.primitive = new Primitive({
       geometryInstances: [],  // 开始时为空
       appearance: this.appearance!,
@@ -696,7 +718,7 @@ export class HighPerformancePrimitiveRenderer {
     // 添加到场景
     this.viewer.scene.primitives.add(this.primitive);
     
-    console.log('Primitive created and added to scene');
+    console.log('Cesium Primitive created and added to scene');
   }
   
   /**
