@@ -25,7 +25,13 @@
     "openlayers",
     "cesium",
     "drawing",
-    "measurement"
+    "measurement",
+    "milsymbol",
+    "military",
+    "milstar",
+    "milsymbol",
+    "military-symbols",
+    "military-overlay"
   ],
   "author": "",
   "license": "MIT",
@@ -44,5 +50,16 @@
     "rollup": "^4.59.0",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChocLiu/lcplot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ChocLiu/lcplot/issues"
+  },
+  "homepage": "https://github.com/ChocLiu/lcplot",
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
