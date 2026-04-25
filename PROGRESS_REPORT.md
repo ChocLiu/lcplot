@@ -1,7 +1,54 @@
 # LCPLOT 项目进度报告
-## 2026-03-21
+## 2026-04-25（v0.2.0-alpha → v0.3.0-alpha）
 
 ## ✅ 已完成的工作
+
+### 【新增】SymbolType 军标类型系统 + 简化 API（2026-04-25）
+
+#### SymbolType 枚举（43 种军标类型）
+- **地面 (22种)**：坦克、装甲、步兵、机械化、火炮、防空、侦察、工兵、指挥部、医疗、补给、维修、迫击炮、导弹、桥梁、雷达、通信、运输、宪兵、防化、军事情报
+- **空中 (8种)**：固定翼、直升机、无人机、空射导弹、预警机、加油机、运输机、武装直升机
+- **海上 (10种)**：水面战斗舰、航母、驱逐舰、护卫舰、潜艇、登陆舰、巡逻艇、扫雷舰、两栖舰、商船
+- **特种作战 (3种)**：特战小队、特战航空、特战海上
+
+#### resolveSidc(type, identity) — 类型 + 敌我 → SIDC
+- 每种类型存基础模板，运行时替换前缀和阵营位，避免存 43×4=172 个字符串
+- 支持 4 阵营：friend/hostile/neutral/unknown
+- 不传 identity 默认 'friend'
+
+#### identityFromSidc(sidc) — SIDC → 敌我
+- 优先位置 10（标准阵营位），兜底前缀 0-1 位
+- 通用函数，独立于 CesiumController
+
+#### CesiumController.addSymbol() — 统一接口
+- 用户只需传 type + identity + position，自动映射
+- `properties.identity` 可选覆盖，用于演习/伪装场景
+- 旧 `createAdvancedPrimitive()` 完全兼容
+
+#### SymbolTypeNames / SymbolTypeGroups
+- 中文名称映射（坦克、无人机…）
+- 按领域分组
+
+### 【新增】initWithViewer() — 兼容已有 Cesium 地球（2026-04-25）
+- 不强制 lcplot 自己创建 Viewer
+- ownsViewer 标记自动判断，destroy() 不销毁外部 viewer
+
+### 【新增】高性能混合渲染引擎（2026-04-03 ~ 04-25）
+- **BillboardCollectionRenderer**：高性能 2D 图标渲染，非 Entity API
+- **HybridRenderer**：路线 C，BillboardCollection + Primitive API 混合路由
+- **HighPerformancePrimitiveRenderer**：23,900+ 行 Primitive API 渲染
+- **TextureAtlasManager**：14,600+ 行纹理图集
+- **MilitarySymbolShader**：15,500+ 行军事符号着色器
+- 性能目标：100,000+ 图元，稳定 60fps
+
+### 【新增】用户手册 USAGE.md（2026-04-25）
+- 完整 API 文档，涵盖所有接口
+- 快速开始、CesiumController API、图元管理
+- 军标选择（SymbolType + MilSIDC 双方式）
+- 混合渲染引擎详解、事件系统、查询统计
+- 完整示例（addSymbol + createAdvancedPrimitive + React）
+
+### 之前完成的工作
 
 ### 1. 图元分类体系设计与实现
 - **MIL-STD-2525D 标准分类**：9大领域（海、陆、空、天、海下、低空等）
@@ -69,35 +116,36 @@ cesium (imported by multiple files)
 
 ## 🚀 下一步计划
 
-### 立即行动
-1. **测试图元渲染**：在`cesium-3d-app`中验证基本功能
-2. **准备图标资源**：部署美军标SVG图标库
-3. **UI集成**：基于示例文档实现侧边栏组件
+### 近期
+1. **高性能渲染验证**：测试 BillboardCollection 与 Hybrid 渲染模式的实际性能
+2. **测试页整理**：测试页面已移到 `tests/` 目录，进行完整回归测试
+3. **图标资源**：部署完整美军标 SVG 图标集
 
 ### 后续开发
-1. **选项B**：通视分析算法实现（3-4天）
+1. **通视分析算法实现**（3-4天）
    - 地形采样与障碍物检测
    - 地球曲率与大气折射校正
    - 动态障碍物多源接口
-
-2. **选项C**：UI集成与测试（1-2天）
-   - 侧边栏组件完善
-   - 性能基准测试
-   - 用户体验优化
-
-### 长期优化
-1. **性能增强**：Web Worker并行计算、实例化渲染
-2. **功能扩展**：OpenLayers完整适配、自定义图标标准
-3. **文档完善**：API文档、使用教程、故障排除指南
+2. **UI集成**：React/Vue组件、属性面板、侧边栏
+3. **性能增强**：Web Worker并行计算、实例化渲染
+4. **功能扩展**：OpenLayers完整适配、自定义图标标准
 
 ## 📁 文件结构
 ```
 lcplot/
 ├── src/
 │   ├── adapters/cesium/
-│   │   ├── CesiumPrimitiveRenderer.ts    # 图元渲染引擎
+│   │   ├── CesiumPrimitiveRenderer.ts    # 图元渲染引擎（Entity API）
 │   │   ├── CesiumInteractive.ts          # 交互管理器
-│   │   └── index.ts                      # 完整控制器
+│   │   ├── index.ts                      # CesiumController + identityFromSidc
+│   │   └── high-performance/
+│   │       ├── BillboardCollectionRenderer.ts # 高性能 2D 图标渲染
+│   │       ├── HybridRenderer.ts              # 混合路由（路线 C）
+│   │       ├── HighPerformancePrimitiveRenderer.ts # Primitive API 渲染
+│   │       ├── InstanceAttributeManager.ts     # 实例属性管理器
+│   │       ├── TextureAtlasManager.ts          # 纹理图集管理器
+│   │       ├── MilitarySymbolShader.ts         # 军事符号着色器
+│   │       └── index.ts                       # 高性能模块导出
 │   ├── features/advanced-primitives/
 │   │   ├── SymbolLibrary.ts              # 图标库管理器
 │   │   ├── PrimitiveCatalog.ts           # 分类目录
@@ -105,141 +153,69 @@ lcplot/
 │   ├── types/
 │   │   ├── primitive.ts                  # 图元类型定义
 │   │   └── line-of-sight.ts              # 通视分析类型
-│   └── core/MapController.ts             # 扩展的抽象类
+│   ├── core/MapController.ts             # 扩展的抽象类
+│   └── utils/
+│       ├── mil-symbols.ts                # SymbolType + resolveSidc + MilSIDC
+│       └── sidc-validator.ts             # SIDC 验证工具
 ├── dist/                                 # 构建输出
-│   ├── lcplot.cjs.js
-│   ├── lcplot.esm.js
-│   └── types/                            # TypeScript声明文件
+├── tests/                                # 测试页面
+│   ├── test-simple.html                  # 基础功能测试
+│   ├── test-milsymbol.html               # 军标符号测试（含 Cesium）
+│   ├── test-milsymbol-only.html          # 纯军标生成测试
+│   ├── test-integration.html             # 集成测试
+│   ├── test-high-performance.html        # 高性能渲染测试
+│   ├── test-texture-atlas.html           # 纹理图集测试
+│   └── test-browser-umd.html             # UMD 浏览器测试
+├── USAGE.md                              # 用户手册（推荐先读）
+├── README.md                             # 项目简介
 ├── lcplot-extension-design.md            # 完整设计文档
 ├── lcplot-integration-example.md         # 集成示例文档
+├── docs/
+│   └── high-performance-design.md        # 高性能渲染设计文档
 └── PROGRESS_REPORT.md                    # 本进度报告
 ```
 
-## 🔧 快速测试
-```bash
-# 安装依赖
-cd /root/.openclaw/workspace/cesium-3d-app
-npm install ../lcplot
+## 🔧 快速开始（新 API）
 
-# 基本使用示例
-import { CesiumController, IdentityCode } from 'lcplot';
+```typescript
+import { CesiumController, SymbolType } from 'lcplot';
 
-const controller = new CesiumController(container, {}, {
-  symbolLibraryConfig: {
-    baseUrl: '/mil-icons',
-    format: 'svg',
-    size: [64, 64]
-  }
-});
+const ctrl = new CesiumController(container);
+ctrl.init();
 
-// 创建坦克图元
-const tankId = await controller.createAdvancedPrimitive({
-  sidc: 'SFGPUCA---A---',
+// 创建友方坦克（不传 identity = 默认 'friend'）
+await ctrl.addSymbol({
+  type: SymbolType.GROUND_TANK,
   position: [116.4, 39.9, 0],
-  properties: {
-    identity: IdentityCode.FRIEND,
-    name: '第1坦克营'
-  },
-  interaction: {
-    draggable: true,
-    labelDraggable: true
-  }
+  name: '第1坦克营'
 });
+
+// 创建敌方无人机
+await ctrl.addSymbol({
+  type: SymbolType.AIR_UAV,
+  identity: 'hostile',
+  position: [116.4, 39.9, 500],
+  name: '敌方无人机'
+});
+
+// 接入已有 Cesium Viewer
+const viewer = new Cesium.Viewer(container, {...});
+ctrl.initWithViewer(viewer);
 ```
 
 ## 📊 代码统计
-- **TypeScript文件**：8个，总计约 112,000 字节
-- **设计文档**：2个，总计约 34,700 字节
-- **总代码行数**：约 3,500 行
-- **开发时间**：约 8 小时（连续工作）
+
+| 分类 | 数量 |
+|------|------|
+| TypeScript 源文件 | 15+
+| 测试页面 | 7 个（已归入 tests/）
+| 文档文件 | 6 个（USAGE, README, 设计文档 x2, 进度报告, 性能设计）
+| 最近版本 | v0.3.0-alpha
+| 核心模块代码 | 约 120,000+ 字节
 
 ## 👥 贡献者
 - **ChocLiu**：项目发起人、需求定义
 - **OpenClaw AI**：代码实现、文档编写
 
 ---
-## 2026-03-25 更新（第二阶段）
-
-### ✅ 性能优化：SVG Data URL 缓存
-- **缓存机制**：添加 `svgDataUrlCache` Map 存储生成的 SVG Data URL，避免重复生成相同图标。
-- **缓存键**：使用 `SIDC:size` 作为键，确保不同尺寸的图标独立缓存。
-- **缓存限制**：最多缓存 100 个条目，超过时自动删除最旧的条目（简单 LRU 策略）。
-- **缓存清理**：`clearCache()` 方法现在也会清理 SVG 缓存，`getCacheStats()` 返回 SVG 缓存统计。
-- **代码变更**：修改 `SymbolLibrary.ts`，在 `tryGenerateSvgSymbol` 中添加缓存逻辑。
-
-### ✅ 文档更新
-- **README.md**：在“MIL-STD-2525D 美军标图元系统”部分添加 milsymbol 集成说明。
-- **使用示例**：添加“使用 milsymbol 生成图标（可选）”章节，提供 CDN 引入和配置示例。
-- **最后更新**：更新文档日期至 2026-03-25。
-
-### ✅ 构建验证
-- TypeScript 编译无错误。
-- UMD/CJS/ESM 构建成功，包含缓存优化代码。
-
-### 🔧 当前状态
-- milsymbol 集成功能完整，包含性能优化。
-- 测试页面 `test-milsymbol.html` 就绪，用于验证集成效果。
-- 文档已更新，指导用户如何使用此功能。
-
-### 🚀 下一步计划
-1. **测试验证**：运行 `test-milsymbol.html` 确保功能正常。
-2. **性能测试**：验证缓存机制对重复图标加载的性能提升。
-3. **用户体验**：考虑添加配置选项，允许用户自定义缓存大小和行为。
-
----
-**报告生成时间**：2026-03-21 18:35 GMT+8（原始报告）  
-## 2026-03-25 更新（第三阶段）
-
-### ✅ API 扩展与错误修复
-- **API 扩展**：为 `CesiumController` 添加 `getSymbolLibrary()` 公共方法，允许用户访问缓存统计信息。
-- **错误修复**：修正测试页面中的 Cesium 地形 API 错误，将 `terrainProvider: Cesium.createWorldTerrain()` 改为 `terrainProvider: undefined`。
-- **测试增强**：更新 `test-milsymbol.html`，添加缓存统计检查按钮，改进错误处理和用户界面。
-- **版本控制**：提交哈希 `7c05739`，包含所有修复和改进。
-
-### 🧪 测试状态
-- **测试页面**：`test-milsymbol.html` 已完全修复，支持：
-  1. Cesium 初始化（无地形 API 错误）
-  2. 红色敌方坦克图标创建（使用 milsymbol 生成）
-  3. 图标源验证（检查是否为 SVG Data URL）
-  4. 缓存统计查询（通过新增的 `getSymbolLibrary()` 方法）
-- **等待验证**：用户正在测试修复后的页面，确认功能正常。
-
-### 🔧 技术要点
-1. **Cesium API 兼容性**：不同版本的 Cesium 可能有不同的地形 API，禁用地形是最安全的做法。
-2. **公共 API 设计**：通过添加 `getSymbolLibrary()` 方法，保持了良好的封装性，同时提供了必要的调试功能。
-3. **渐进式增强**：milsymbol 集成是可选功能，如果未加载 milsymbol 库，系统会自动回退到 Canvas 绘制。
-
-## 2026-03-25 更新（第四阶段）
-
-### ✅ 语法错误修复与独立测试页
-- **语法错误修复**：解决 `test-milsymbol.html` 中的变量重复声明错误（`Identifier 'viewer' has already been declared`）
-- **独立测试页**：创建 `test-milsymbol-only.html`，完全不依赖 Cesium，用于验证核心功能
-- **用户验证**：备选测试页已验证成功，milsymbol 图标生成功能正常
-- **版本控制**：提交哈希 `2c1d103`，包含语法修复和独立测试页
-
-### 🧪 当前测试状态
-- **备选测试页** (`test-milsymbol-only.html`)：✅ 验证成功，用户确认图标可正常生成
-- **主测试页** (`test-milsymbol.html`)：🔄 语法错误已修复，等待用户重新验证
-- **核心功能验证**：
-  - ✅ milsymbol 图标生成功能正常
-  - ✅ LCPLOT SymbolLibrary 集成正常
-  - ✅ SVG 数据URL生成与缓存正常
-  - 🔄 Cesium 集成待验证（用户反馈Cesium初始化成功，但有浏览器警告）
-
-### 🔍 已知问题与浏览器警告
-1. **浏览器隐私警告**：Tracking Prevention阻止Cesium Ion图标加载（无害，不影响功能）
-2. **性能警告**：requestAnimationFrame处理时间较长（正常，Cesium渲染开销）
-3. **语法错误**：已修复`viewer`变量重复声明问题
-
-### 🚀 下一步计划
-1. **主测试页验证**：等待用户验证语法错误修复后的版本
-2. **浏览器警告处理**：考虑进一步配置Cesium以避免Ion图标加载警告
-3. **功能完善**：基于验证结果，继续完善MIL-STD-2525D符号库支持
-
----
-**报告生成时间**：2026-03-21 18:35 GMT+8（原始报告）  
-**第一阶段更新**：2026-03-25 06:50 GMT+8（milsymbol 集成）  
-**第二阶段更新**：2026-03-25 07:10 GMT+8（缓存优化与文档）  
-**第三阶段更新**：2026-03-25 08:35 GMT+8（API 扩展与错误修复）  
-**第四阶段更新**：2026-03-25 18:56 GMT+8（语法错误修复与独立测试页）  
-**下次更新**：根据测试结果决定下一步（通视分析或性能优化）
+**报告生成时间**：2026-04-25 14:02 GMT+8

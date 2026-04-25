@@ -2,7 +2,7 @@
 
 > 高性能军事标绘库，支持 MIL-STD-2525D 美军标图元、通视分析、混合渲染引擎（BillboardCollection + Primitive API）。
 >
-> 版本: 0.2.0-alpha · 引擎: Cesium · 渲染模式: Hybrid (路线C)
+> 版本: 0.3.0-alpha · 引擎: Cesium · 渲染模式: Hybrid (路线C)
 
 ---
 

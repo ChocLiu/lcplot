@@ -1,6 +1,6 @@
 {
   "name": "lcplot",
-  "version": "0.2.0-alpha",
+  "version": "0.3.0-alpha",
   "description": "高级GIS标绘与量算库 - 支持MIL-STD-2525D图元与通视分析",
   "main": "dist/lcplot.cjs.js",
   "module": "dist/lcplot.esm.js",

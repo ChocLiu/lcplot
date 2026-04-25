@@ -282,5 +282,5 @@ MIT License
 
 ---
 **仓库**：https://github.com/ChocLiu/lcplot  
-**最后更新**：2026-03-25  
-**版本**：v0.2.0-alpha（高级图元渲染版）
+**最后更新**：2026-04-25  
+**版本**：v0.3.0-alpha（SymbolType + 混合渲染）
