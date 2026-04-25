@@ -30,7 +30,7 @@
 
 ## 📖 用户手册
 
-完整 API 文档请查看 [USAGE.md](./USAGE.md)，涵盖：
+完整 API 文档请查看 [USAGE.md](./docs/USAGE.md)，涵盖：
 - 快速开始与安装
 - CesiumController 全部 API
 - 创建/更新/删除/查询图元
@@ -270,12 +270,12 @@ npm run build
 ```
 
 ### 详细文档
-- [设计文档](./lcplot-extension-design.md)：完整架构设计
-- [集成示例](./lcplot-integration-example.md)：React组件示例
-- [进度报告](./PROGRESS_REPORT.md)：开发进度与问题
+- [设计文档](./docs/lcplot-extension-design.md)：完整架构设计
+- [集成示例](./docs/lcplot-integration-example.md)：React组件示例
+- [进度报告](./docs/PROGRESS_REPORT.md)：开发进度与问题
 
 ## 👥 贡献
-欢迎提交Issue和Pull Request！开发计划见 [PROGRESS_REPORT.md](./PROGRESS_REPORT.md)。
+欢迎提交Issue和Pull Request！开发计划见 [PROGRESS_REPORT.md](./docs/PROGRESS_REPORT.md)。
 
 ## 📄 License
 MIT License

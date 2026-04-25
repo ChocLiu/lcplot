@@ -81,8 +81,8 @@
   - `line-of-sight.ts` (7,775字节)：通视分析类型定义
 
 ### 4. 设计文档与示例
-- **设计文档**：`lcplot-extension-design.md` (14,426字)
-- **集成示例**：`lcplot-integration-example.md` (20,305字)
+- **设计文档**：`docs/lcplot-extension-design.md` (14,426字)
+- **集成示例**：`docs/lcplot-integration-example.md` (20,305字)
   - 完整React组件示例
   - Cesium 3D应用集成指南
   - 弹出式属性面板实现
@@ -166,13 +166,14 @@ lcplot/
 │   ├── test-high-performance.html        # 高性能渲染测试
 │   ├── test-texture-atlas.html           # 纹理图集测试
 │   └── test-browser-umd.html             # UMD 浏览器测试
-├── USAGE.md                              # 用户手册（推荐先读）
-├── README.md                             # 项目简介
-├── lcplot-extension-design.md            # 完整设计文档
-├── lcplot-integration-example.md         # 集成示例文档
 ├── docs/
+│   ├── USAGE.md                          # 用户手册（推荐先读）
+│   ├── PROGRESS_REPORT.md                # 本进度报告
+│   ├── lcplot-extension-design.md        # 架构设计文档
+│   ├── lcplot-integration-example.md     # 集成示例文档
 │   └── high-performance-design.md        # 高性能渲染设计文档
-└── PROGRESS_REPORT.md                    # 本进度报告
+├── README.md                             # 项目简介
+└── package.json
 ```
 
 ## 🔧 快速开始（新 API）
