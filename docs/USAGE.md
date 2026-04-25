@@ -2,7 +2,7 @@
 
 > 高性能军事标绘库，支持 MIL-STD-2525D 美军标图元、通视分析、混合渲染引擎（BillboardCollection + Primitive API）。
 >
-> 版本: 0.3.0-alpha · 引擎: Cesium · 渲染模式: Hybrid (路线C)
+> 版本: 0.4.0-alpha · 引擎: Cesium · 渲染模式: Hybrid (路线C)
 
 ---
 
@@ -18,6 +18,7 @@
 - [事件系统](#事件系统)
 - [查询与统计](#查询与统计)
 - [渲染器切换](#渲染器切换)
+- [轨迹与航线系统](#轨迹与航线系统v040)
 - [导出类型速查](#导出类型速查)
 - [完整示例](#完整示例)
 
@@ -64,6 +65,14 @@ const uavId = await controller.addSymbol({
   type: SymbolType.AIR_UAV,
   position: [116.4, 39.9, 500],
   name: '侦察无人机'
+});
+
+// 创建民用无人机（设置型号）
+const civilUav = await controller.addSymbol({
+  type: SymbolType.LOW_ALT_CIVILIAN_UAV,
+  position: [116.4, 39.9, 120],
+  properties: { model: 'DJI Mavic 3', serial: 'MA3X123456' },
+  name: '巡检无人机'
 });
 ```
 
@@ -310,10 +319,11 @@ SymbolTypeNames[SymbolType.AIR_UAV]              // → '无人机'
 | 领域 | 类型数量 | SymbolType 前缀 |
 |------|----------|----------------|
 | 🗺️ 地面 Ground | 22 | `GROUND_*` |
-| ✈️ 空中 Air | 8 | `AIR_*` |
+| ✈️ 空中 Air | 9 (+1) | `AIR_*`、`AIR_CIVILIAN_*` |
 | ⚓ 海上 Sea | 10 | `SEA_*` |
 | 🎯 特种作战 SOF | 3 | `SOF_*` |
-| **合计** | **43** | |
+| 🛸 低空 LOW_ALT | 3 (🆕) | `LOW_ALT_*` |
+| **合计** | **47** | |
 
 #### 地面类型完整列表
 
@@ -375,6 +385,25 @@ SymbolType.SOF_TEAM                    // 特种作战小队
 SymbolType.SOF_AVIATION                // 特种作战航空
 SymbolType.SOF_NAVAL                   // 特种作战海上
 ```
+
+#### 低空类型完整列表（v0.4.0+）
+
+```typescript
+SymbolType.LOW_ALT_CIVILIAN_UAV        // 民用无人机
+SymbolType.LOW_ALT_BIRD                // 鸟类
+SymbolType.LOW_ALT_BALLOON             // 气球
+
+// 民用飞机（归属空中领域）
+SymbolType.AIR_CIVILIAN_AIRCRAFT       // 民用飞机
+```
+
+> 民用图元支持型号/序列号扩展：
+> ```typescript
+> ctrl.addSymbol({
+>   type: SymbolType.LOW_ALT_CIVILIAN_UAV,
+>   position: [116.4, 39.9, 120],
+>   properties: { model: 'DJI Mavic 3', serial: 'MA3X123456' }
+> });
 
 ### 使用常量表（旧 API）
 MilSIDC.Ground.FRIENDLY_RECON          // SFGPURC---A---  侦察
@@ -698,6 +727,90 @@ const results = controller.queryAdvancedPrimitives({
 
 ---
 
+## 轨迹与航线系统（v0.4.0+）
+
+### 平滑移动
+
+让图元平滑移动到新位置，中间帧自动插值：
+
+```typescript
+// 让图元在 3 秒内平滑移动到新位置
+await ctrl.startSmoothMove(primitiveId, [116.5, 40.0, 200], {
+  duration: 3000,              // 移动耗时（毫秒）
+  easing: 'easeInOut',         // 缓动：linear / easeIn / easeOut / easeInOut
+  onComplete: () => {          // 移动完成回调
+    console.log('到达目标位置');
+  }
+});
+
+// 停止移动
+ctrl.stopSmoothMove(primitiveId);
+```
+
+### 尾迹
+
+自动记录图元位置历史，渲染为渐变轨迹线：
+
+```typescript
+// 开启尾迹，最多记录 200 个位置点
+ctrl.setTrail(primitiveId, true, {
+  maxPoints: 200,              // 最大点数
+  color: '#00ff88',            // 轨迹颜色
+  width: 2,                    // 轨迹线宽
+  opacity: 0.6                 // 透明度
+});
+
+// 关闭尾迹
+ctrl.setTrail(primitiveId, false);
+
+// 手动添加轨迹点（例如从外部数据源更新）
+ctrl.addTrailPoint(primitiveId, [116.41, 39.91, 120]);
+
+// 清除尾迹历史
+ctrl.clearTrail(primitiveId);
+```
+
+### 预设航线
+
+渲染航线点 + 动态移动虚线 + 半透明管道：
+
+```typescript
+ctrl.setRoute(primitiveId, [
+  [116.4, 39.9, 100],          // 航线点列表 [经度°, 纬度°, 高度米]
+  [116.42, 39.91, 120],
+  [116.44, 39.92, 150],
+  [116.46, 39.91, 100]
+], {
+  // 航线条
+  lineColor: '#00ff88',
+  lineWidth: 2,
+  
+  // 半透明管道（宽度/高度以米为单位）
+  pipeWidth: 50,               // 管道宽度 50 米
+  pipeHeight: 30,              // 管道高度 30 米
+  pipeOpacity: 0.15,
+  pipeColor: '#00aaff',
+  
+  // 航线点
+  waypointSize: 8,
+  waypointColor: '#00ff88',
+  showLabels: true
+});
+
+// 清除航线
+ctrl.clearRoute(primitiveId);
+```
+
+**航线渲染要素说明：**
+
+| 元素 | 渲染方式 | 说明 |
+|------|----------|------|
+| 航线点 | Billboard + Label | 圆圈标记 + 序号标签 |
+| 动态虚线 | Polyline + 逐帧偏移 | 虚线沿航线方向移动，方向始终对齐 |
+| 管道 | CorridorGeometry | 半透明管道，宽度/高度以米为单位，跟随地形 |
+
+---
+
 ## 导出类型速查
 
 ### 军标类型 (SymbolType)
@@ -753,6 +866,14 @@ SymbolType.SEA_MERCHANT                // 商船
 SymbolType.SOF_TEAM                    // 特种作战小队
 SymbolType.SOF_AVIATION                // 特种作战航空
 SymbolType.SOF_NAVAL                   // 特种作战海上
+
+// 低空（v0.4.0+）
+SymbolType.LOW_ALT_CIVILIAN_UAV        // 民用无人机
+SymbolType.LOW_ALT_BIRD                // 鸟类
+SymbolType.LOW_ALT_BALLOON             // 气球
+
+// 民用飞机
+SymbolType.AIR_CIVILIAN_AIRCRAFT       // 民用飞机
 ```
 
 ### 核心函数
@@ -792,6 +913,7 @@ MilitaryDomain.SOF           // 特种作战
 MilitaryDomain.CYBER         // 网络
 MilitaryDomain.SIGNAL        // 信号
 MilitaryDomain.ACTIVITY      // 活动
+MilitaryDomain.LOW_ALTITUDE // 低空（v0.4.0+ 民用/小型UAV场景）
 ```
 
 ### 状态 (StatusCode)
@@ -853,6 +975,57 @@ ctrl.addSymbol({
   identity: 'hostile',
   position: [118.2, 38.3, -50],
   name: '不明潜艇'
+});
+```
+
+### 🛸 低空经济图元示例（v0.4.0+）
+
+```typescript
+import { CesiumController, SymbolType } from 'lcplot';
+
+const ctrl = new CesiumController(document.getElementById('map'));
+ctrl.init();
+
+// 民用无人机（型号/序列号支持）
+const uavId = await ctrl.addSymbol({
+  type: SymbolType.LOW_ALT_CIVILIAN_UAV,
+  position: [116.4, 39.9, 120],
+  properties: { model: 'DJI Mavic 3', serial: 'MA3X123456' },
+  name: '巡检无人机'
+});
+
+// 设置航线（含半透明管道）
+ctrl.setRoute(uavId, [
+  [116.4, 39.9, 120],
+  [116.42, 39.91, 150],
+  [116.44, 39.92, 130],
+  [116.46, 39.91, 100]
+], {
+  pipeWidth: 30,
+  pipeHeight: 20,
+  lineColor: '#ff8800',
+  showLabels: true
+});
+
+// 启尾迹
+ctrl.setTrail(uavId, true, { maxPoints: 500, color: '#ff8800' });
+
+// 模拟移动（每 2 秒更新位置）
+ctrl.startSmoothMove(uavId, [116.42, 39.91, 150], { duration: 2000 });
+
+// 鸟类
+await ctrl.addSymbol({
+  type: SymbolType.LOW_ALT_BIRD,
+  position: [116.38, 39.92, 80],
+  name: '候鸟群'
+});
+
+// 民航飞机
+await ctrl.addSymbol({
+  type: SymbolType.AIR_CIVILIAN_AIRCRAFT,
+  position: [116.5, 40.0, 8000],
+  properties: { model: 'Boeing 737-800', flight: 'CA1234' },
+  name: '中国国航 CA1234'
 });
 ```
 

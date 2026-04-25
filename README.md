@@ -2,10 +2,15 @@
 
 一个统一的GIS标绘库，支持多种GIS引擎（OpenLayers、Cesium等）。一次编写，在任何支持的引擎上运行。
 
-## ✨ 新增高级功能（v0.2.0）
+## ✨ 新增高级功能（v0.4.0）
+
+### 🛸 低空经济领域 (LOW_ALTITUDE)
+- **新增领域**：`MilitaryDomain.LOW_ALTITUDE`，为民用无人机/鸟类/气球等场景独立设计
+- **民用图元**：`LOW_ALT_CIVILIAN_UAV`、`LOW_ALT_BIRD`、`LOW_ALT_BALLOON`、`AIR_CIVILIAN_AIRCRAFT`
+- **型号支持**：每个图元可设置 `model`（型号）、`serial`（序列号）
 
 ### 🎖️ MIL-STD-2525D 美军标图元系统
-- **45+ 军标类型**：地面(22)、空中(8)、海上(10)、特战(3)，每类4阵营(friend/hostile/neutral/unknown)
+- **45+ 军标类型**：地面(22)、空中(8)、海上(10)、特战(3)、低空(3)，每类4阵营(friend/hostile/neutral/unknown)
 - **✍️ 简化 API**：`ctrl.addSymbol({ type: SymbolType.TANK, identity: 'hostile' })` — 不用记 SIDC
 - **自动敌我推断**：`resolveSidc(type, identity)` 自动映射 15 位编码，`identityFromSidc()` 反向提取
 - **阵营系统**：友方、敌方、中立、未知等12种标准阵营
@@ -15,7 +20,11 @@
 
 ### 🔌 兼容已有 Cesium 地球
 - **`initWithViewer(existingViewer)`**：使用已创建的 Cesium.Viewer，不重复创建
-- **`destroy()` 不销毁外部 viewer**：ownsViewer 标记自动判断
+
+### 📍 实时轨迹与航线系统
+- **平滑移动**：`startSmoothMove(id, targetPos, duration)` — 图元自动插值移动
+- **尾迹**：`setTrail(id, true)` — 自动记录位置历史，渲染为渐变轨迹线
+- **预设航线**：`setRoute(id, waypoints[], config)` — 渲染航线点 + 动态虚线 + 半透明管道（宽度/高度以米为单位）
 
 ### 🖼️ 高级图元渲染（Cesium）
 - **双模式渲染**：2D图标(Billboard) + 3D模型(glTF)
@@ -285,4 +294,4 @@ MIT License
 ---
 **仓库**：https://github.com/ChocLiu/lcplot  
 **最后更新**：2026-04-25  
-**版本**：v0.3.0-alpha（SymbolType + 混合渲染）
+**版本**：v0.4.0-alpha（低空经济 + 轨迹系统）
