@@ -58,7 +58,7 @@
 
 ## Supported Engines
 
-- OpenLayers 6/7
+- OpenLayers 6+ / ol 10+（占位适配器，功能待完善）
 - Cesium 1.100+
 - *More engines can be added via adapters.*
 
@@ -71,7 +71,9 @@ npm install lcplot
 You also need to install the engine(s) you plan to use:
 
 ```bash
-npm install openlayers
+npm install ol
+# 或（旧版）
+# npm install openlayers
 # or
 npm install cesium
 ```
