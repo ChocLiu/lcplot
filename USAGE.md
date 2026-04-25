@@ -121,14 +121,51 @@ controller.fitBounds([
 ### 生命周期
 
 ```typescript
-// 初始化
+// 方式一：由 LCPLOT 创建 Cesium Viewer（简单模式）
 controller.init();
-
-// 销毁（释放 GPU 资源）
+// 销毁时自动清理 LCPLOT 引擎 + Cesium Viewer
 controller.destroy();
+
+// 方式二：接入已有的 Cesium Viewer（推荐！）
+const viewer = new Cesium.Viewer(container, {...});
+const ctrl = new CesiumController(container, {}, { rendererMode: 'hybrid' });
+ctrl.initWithViewer(viewer);   // 使用已有 viewer，不再创建新的
+// 销毁时只清理 LCPLOT 引擎，不会销毁你的 viewer
+ctrl.destroy();
+viewer.destroy();  // viewer 由你自行销毁
 
 // 获取原始 Cesium Viewer 实例
 const viewer = controller.getViewer();
+```
+
+### SIDC 与敌我属性的关系
+
+**MIL-STD-2525D 中，敌我属性已编码在 SIDC 内：**
+```
+SFGPUCA---A---   → 友方坦克（位置 1 = F = Friend）
+SHGPUCA---H---   → 敌方坦克（位置 1 = H = Hostile）
+SNGPUCA---N---   → 中立坦克（位置 1 = N = Neutral）
+```
+
+因此 `createAdvancedPrimitive` 种：
+
+```typescript
+// ✅ 推荐：不传 identity，自动从 SIDC 推断
+ctrl.createAdvancedPrimitive({
+  sidc: MilSIDC.Ground.FRIENDLY_TANK,
+  position: [116.4, 39.9, 0],
+  properties: { name: '第1坦克营' }   // identity 自动设为 'friend'
+});
+
+// ✅ 覆盖场景（演习、伪装）：显式设置 identity 覆盖 SIDC
+ctrl.createAdvancedPrimitive({
+  sidc: MilSIDC.Ground.FRIENDLY_TANK,
+  position: [116.4, 39.9, 0],
+  properties: {
+    identity: 'hostile',    // 覆盖：友方符号显示为敌方颜色
+    name: '演习目标'
+  }
+});
 ```
 
 ---

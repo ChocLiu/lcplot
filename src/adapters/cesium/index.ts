@@ -98,6 +98,36 @@ export interface CesiumControllerConfig {
 }
 
 /**
+ * 从 SIDC 自动提取敌我阵营标识
+ * MIL-STD-2525D 中，敌我编码内嵌在 SIDC 中：
+ *   位置 0-1: 符号集 (SF=友方, SH=敌方, SN=中立, SU=未知)
+ *   位置 10:  标准阵营 (A=友方, H=敌方, N=中立, U=未知)
+ *
+ * SIDC 是敌我属性的权威来源。
+ * 若用户通过 properties.identity 提供了覆盖值，则以用户为准。
+ */
+export function identityFromSidc(sidc: string): string {
+  if (!sidc || sidc.length < 11) return 'unknown';
+  const s = sidc.toUpperCase();
+
+  // 1) 位置 10（标准阵营位）最精准
+  const charMap: Record<string, string> = {
+    'A': 'friend', 'H': 'hostile', 'N': 'neutral',
+    'U': 'unknown', 'P': 'pending', 'S': 'suspect',
+    'J': 'joker', 'F': 'faker'
+  };
+  if (charMap[s[10]]) return charMap[s[10]];
+
+  // 2) 符号集前缀（位置 0-1）兜底
+  const prefix = s.substring(0, 2);
+  const prefixMap: Record<string, string> = {
+    'SF': 'friend', 'SH': 'hostile', 'SN': 'neutral',
+    'SU': 'unknown', 'SO': 'friend', 'SW': 'unknown'
+  };
+  return prefixMap[prefix] || 'unknown';
+}
+
+/**
  * Cesium 控制器实现
  */
 export class CesiumController extends MapController {
@@ -115,6 +145,9 @@ export class CesiumController extends MapController {
   
   // 当前渲染器模式
   private rendererMode: RendererMode;
+  
+  // viewer 所有权标记：true = LCPLOT 创建的，destroy 时一并销毁
+  private ownsViewer = false;
   
   // 事件监听器
   private primitiveEventListeners = new Map<PrimitiveEventType, Set<(data: PrimitiveEventData) => void>>();
@@ -187,9 +220,45 @@ export class CesiumController extends MapController {
       this.initializeAdvancedPrimitiveSystem();
       
       this.isInitialized = true;
+      this.ownsViewer = true;
       console.log('CesiumController initialized successfully');
     } catch (error) {
       console.error('Failed to initialize CesiumController:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ========== 初始化（接入已创建的 Cesium Viewer）==========
+   *
+   * 使用外部已有的 Cesium.Viewer 初始化 LCPLOT 渲染引擎。
+   * 适用于用户已经创建好 Cesium 地球，只需接入标绘功能的场景。
+   *
+   * 用法：
+   *   const viewer = new Cesium.Viewer(container, {...});
+   *   const ctrl = new CesiumController(container, {}, { rendererMode: 'hybrid' });
+   *   ctrl.initWithViewer(viewer);  // 传入已有 viewer，不再创建新的
+   *
+   * 注意：传入的 viewer 不会在 ctrl.destroy() 时被销毁，调用方自行管理 viewer 生命周期。
+   */
+  initWithViewer(viewer: Cesium.Viewer): void {
+    if (this.isInitialized) return;
+    if (!viewer) throw new Error('Existing Cesium Viewer is required');
+
+    try {
+      this.viewer = viewer;
+
+      // 设置全局变量以便调试
+      (window as any).cesiumViewer = viewer;
+
+      // 初始化高级图元系统
+      this.initializeAdvancedPrimitiveSystem();
+
+      this.isInitialized = true;
+      this.ownsViewer = false;
+      console.log('CesiumController initialized with existing viewer (destroy() will NOT destroy it)');
+    } catch (error) {
+      console.error('Failed to initialize CesiumController with existing viewer:', error);
       throw error;
     }
   }
@@ -219,8 +288,8 @@ export class CesiumController extends MapController {
       this.interactiveManager = null;
     }
     
-    // 销毁 Cesium Viewer
-    if (this.viewer) {
+    // 销毁 Cesium Viewer（仅当由 LCPLOT 创建时）
+    if (this.ownsViewer && this.viewer) {
       this.viewer.destroy();
       this.viewer = null;
     }
@@ -403,9 +472,21 @@ export class CesiumController extends MapController {
 
   async createAdvancedPrimitive(options: PrimitiveCreateOptions): Promise<string> {
     this.ensurePrimitiveSystemInitialized();
-    
+
+    // ===== 自动从 SIDC 提取敌我属性 =====
+    // MIL-STD-2525D 中，敌我编码在 SIDC 中已包含（位置 10：A=友/H=敌/N=中）
+    // 若用户未显式设置 identity，则从 SIDC 自动推断
+    // 若用户显式设置，则以用户设置为准（覆盖场景：演习、伪装等）
+    const finalOptions = { ...options };
+    if (!finalOptions.properties) {
+      finalOptions.properties = {};
+    }
+    if (finalOptions.properties.identity === undefined) {
+      finalOptions.properties.identity = identityFromSidc(options.sidc) as any;
+    }
+
     try {
-      return await this.getActiveRenderer().createPrimitive(options);
+      return await this.getActiveRenderer().createPrimitive(finalOptions);
     } catch (error) {
       console.error('Failed to create advanced primitive:', error);
       throw error;

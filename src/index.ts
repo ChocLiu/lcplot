@@ -5,7 +5,7 @@ export type { EngineType } from './core/MapFactory';
 
 // 适配器导出
 export { OpenLayersController } from './adapters/openlayers';
-export { CesiumController } from './adapters/cesium';
+export { CesiumController, identityFromSidc } from './adapters/cesium';
 
 // 类型导出
 export type {
