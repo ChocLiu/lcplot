@@ -2,127 +2,75 @@
  * 高性能渲染器模块导出
  */
 
-// 值导出（类、函数等）
+// 基础模块
 export { TextureAtlasManager } from './TextureAtlasManager';
 export { HighPerformancePrimitiveRenderer } from './HighPerformancePrimitiveRenderer';
 export { MilitarySymbolShader } from './MilitarySymbolShader';
 export { InstanceAttributeManager } from './InstanceAttributeManager';
 export { SpatialIndexManager } from './SpatialIndexManager';
 
-// 类型导出（接口、类型别名等）
+// BillboardCollection 渲染器（路线 C - 简单图标高性能方案）
+export { BillboardCollectionRenderer } from './BillboardCollectionRenderer';
+
+// 混合渲染器（路线 C - 统一入口）
+export { HybridRenderer } from './HybridRenderer';
+
+// 类型导出
 export type { UVCoordinates, TextureAtlasConfig, TextureAtlasStats } from './TextureAtlasManager';
 export type { HighPerformanceRendererConfig, PerformanceStats } from './HighPerformancePrimitiveRenderer';
 export type { ShaderConfig, ShaderUniforms, ShaderAttributes } from './MilitarySymbolShader';
 export type { InstanceAttribute, InstanceData, InstanceUpdate, BufferStats, InstanceAttributeManagerConfig } from './InstanceAttributeManager';
 export type { SpatialIndexType, SpatialIndexConfig, SpatialNode, QueryResult, LodLevel, VisibleInstanceSet } from './SpatialIndexManager';
+export type { BillboardCollectionConfig } from './BillboardCollectionRenderer';
+export type { HybridRendererConfig, HybridStats } from './HybridRenderer';
 
 /**
- * 高性能渲染器工厂
+ * 高性能渲染器工厂（支持混合模式）
  */
-// 工厂类内部使用的导入
 import type { HighPerformanceRendererConfig } from './HighPerformancePrimitiveRenderer';
 import { HighPerformancePrimitiveRenderer } from './HighPerformancePrimitiveRenderer';
 import { TextureAtlasManager } from './TextureAtlasManager';
+import { HybridRenderer, HybridRendererConfig } from './HybridRenderer';
+import { BillboardCollectionRenderer } from './BillboardCollectionRenderer';
 
 export class HighPerformanceRendererFactory {
   /**
-   * 创建完整的渲染器
+   * 创建纯 Primitive API 渲染器
    */
-  static async createRenderer(
+  static async createPrimitiveRenderer(
     viewer: any,
     config?: Partial<HighPerformanceRendererConfig>
   ): Promise<HighPerformancePrimitiveRenderer> {
-    // 创建纹理图集管理器
     const textureAtlasManager = new TextureAtlasManager({
       atlasSize: config?.textureAtlasSize || 2048,
       symbolSize: config?.symbolSize || 64
     });
-    
     await textureAtlasManager.initialize();
-    
-    // 创建高性能渲染器
-    const renderer = new HighPerformancePrimitiveRenderer(
-      viewer,
-      textureAtlasManager,
-      config
-    );
-    
+    const renderer = new HighPerformancePrimitiveRenderer(viewer, textureAtlasManager, config);
     return renderer;
   }
-  
+
   /**
-   * 检查 WebGL 2.0 支持
+   * 创建 BillboardCollection 渲染器（简单图标高性能方案）
    */
-  static isWebGL2Supported(): boolean {
-    if (typeof window === 'undefined') return false;
-    
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2');
-    return gl !== null;
+  static createBillboardRenderer(viewer: any, config?: any): BillboardCollectionRenderer {
+    return new BillboardCollectionRenderer(viewer, config);
   }
-  
+
   /**
-   * 检查实例化渲染支持
+   * 创建混合渲染器（推荐！）
+   * 自动根据符号类型选择最优渲染策略
    */
-  static isInstancingSupported(): boolean {
-    if (typeof window === 'undefined') return false;
-    
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    if (!gl) return false;
-    
-    // 检查 WebGL 2.0 或 ANGLE_instanced_arrays 扩展
-    const isWebGL2 = gl instanceof WebGL2RenderingContext;
-    if (isWebGL2) return true;
-    
-    // WebGL 1.0 检查扩展
-    const ext = gl.getExtension('ANGLE_instanced_arrays');
-    return ext !== null;
-  }
-  
-  /**
-   * 获取性能基准
-   */
-  static getPerformanceBenchmark(): {
-    maxInstances: number;
-    recommendedBatchSize: number;
-    textureSize: number;
-  } {
-    const isHighEnd = this.isHighEndGPU();
-    
-    return {
-      maxInstances: isHighEnd ? 100000 : 50000,
-      recommendedBatchSize: isHighEnd ? 1024 : 512,
-      textureSize: isHighEnd ? 4096 : 2048
+  static async createHybridRenderer(
+    viewer: any,
+    config?: Partial<HybridRendererConfig>
+  ): Promise<HybridRenderer> {
+    const taConfig = {
+      atlasSize: config?.textureAtlas?.atlasSize || 2048,
+      symbolSize: config?.textureAtlas?.symbolSize || 64
     };
-  }
-  
-  /**
-   * 检测是否为高端 GPU
-   */
-  private static isHighEndGPU(): boolean {
-    if (typeof window === 'undefined') return false;
-    
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    if (!gl) return false;
-    
-    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-    if (debugInfo) {
-      const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-      
-      // 检查高端 GPU 关键词
-      const highEndGPUs = [
-        'nvidia', 'geforce', 'rtx', 'gtx',
-        'radeon', 'rx', 'amd',
-        'intel iris', 'intel hd graphics 6', 'intel hd graphics 7'
-      ];
-      
-      const rendererLower = renderer.toLowerCase();
-      return highEndGPUs.some(gpu => rendererLower.includes(gpu));
-    }
-    
-    // 无法检测时假定为中端
-    return false;
+    const textureAtlasManager = new TextureAtlasManager(taConfig);
+    await textureAtlasManager.initialize();
+    return new HybridRenderer(viewer, textureAtlasManager, config);
   }
 }

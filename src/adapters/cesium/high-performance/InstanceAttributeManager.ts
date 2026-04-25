@@ -141,7 +141,6 @@ export class InstanceAttributeManager {
   
   constructor(config: InstanceAttributeManagerConfig) {
     this.config = {
-      maxInstances: 100000,
       initialCapacity: 1024,
       growFactor: 2.0,
       enableCompression: false,
@@ -150,7 +149,6 @@ export class InstanceAttributeManager {
       ...config
     };
     
-    // @ts-ignore TS2783: 'maxInstances' is specified more than once
     this.maxInstances = this.config.maxInstances;
     this.bufferCapacity = Math.min(this.config.initialCapacity!, this.maxInstances);
     

@@ -99,13 +99,16 @@ export class HighPerformancePrimitiveRenderer {
   private nextBufferIndex = 0;
   
   // GPU 资源
-  private primitive: Cesium.Primitive | null = null;
-  private geometry: Cesium.Geometry | null = null;
+  private primitives: Cesium.PrimitiveCollection | null = null;
   private appearance: Cesium.Appearance | null = null;
+  private geometry: Cesium.Geometry | null = null;
   private instanceAttributes: InstanceAttributes | null = null;
   private vertexBuffer: Buffer | null = null;
   private indexBuffer: Buffer | null = null;
   private instanceBuffer: Buffer | null = null;
+  
+  // 场景上下文缓存
+  private cesiumContext: any = null;
   
   // 性能优化
   private dirtyInstances = new Set<string>();  // 需要更新的实例
@@ -309,7 +312,7 @@ export class HighPerformancePrimitiveRenderer {
   }
   
   /**
-   * 删除图元
+   * 删除图元（同时从 GPU 场景中移除对应的 Primitive）
    */
   removePrimitive(id: string): void {
     const instance = this.instances.get(id);
@@ -318,8 +321,14 @@ export class HighPerformancePrimitiveRenderer {
       return;
     }
     
-    // 标记缓冲区位置为空
-    // TODO: 实际需要回收缓冲区空间
+    // 从 PrimitiveCollection 中移除对应的 GPU Primitive
+    if (this.primitives && instance.geometryInstance) {
+      const prim = this.findPrimitiveByInstance(instance.geometryInstance);
+      if (prim) {
+        this.primitives.remove(prim);
+        try { (prim as any).destroy(); } catch (e) { /* ignore */ }
+      }
+    }
     
     // 移除实例
     this.instances.delete(id);
@@ -331,14 +340,8 @@ export class HighPerformancePrimitiveRenderer {
     // 从脏实例集中移除
     this.dirtyInstances.delete(id);
     
-    // 标记缓冲区需要重新组织
-    this.dirtyBuffer = true;
-    
     // 更新统计
     this.stats.instanceCount = this.instances.size;
-    
-    // 调度缓冲区更新
-    this.scheduleBufferUpdate();
     
     console.log(`Removed primitive ${id}`);
   }
@@ -355,6 +358,14 @@ export class HighPerformancePrimitiveRenderer {
     this.scheduleBufferUpdate();
   }
   
+  /**
+   * 获取单个图元数据
+   */
+  getPrimitive(id: string): AdvancedPrimitive | null {
+    const instance = this.instances.get(id);
+    return instance ? instance.primitive : null;
+  }
+
   /**
    * 查询图元
    */
@@ -444,9 +455,10 @@ export class HighPerformancePrimitiveRenderer {
    * 销毁渲染器
    */
   destroy(): void {
-    // 清理 GPU 资源
-    if (this.primitive && !(this.primitive as any).isDestroyed()) {
-      (this.primitive as any).destroy();
+    // 清理 PrimitiveCollection（自动清理所有子 Primitive）
+    if (this.primitives && !(this.primitives as any).isDestroyed()) {
+      this.viewer.scene.primitives.remove(this.primitives);
+      (this.primitives as any).destroy();
     }
     
     if (this.vertexBuffer && !(this.vertexBuffer as any).isDestroyed()) {
@@ -570,132 +582,94 @@ export class HighPerformancePrimitiveRenderer {
   }
   
   /**
-   * 创建基础几何（四边形）
+   * 创建基础几何（单位四边形，用于实例化渲染）
    */
   private createBaseGeometry(): void {
-    // 创建四边形几何（用于实例化渲染）
-    // 顶点位置（单位四边形）
+    const cesium = this.getCesiumCtx();
+    
     const positions = new Float32Array([
-      -0.5, -0.5, 0,  // 左下
-       0.5, -0.5, 0,  // 右下
-       0.5,  0.5, 0,  // 右上
-      -0.5,  0.5, 0   // 左上
+      -0.5, -0.5, 0,
+       0.5, -0.5, 0,
+       0.5,  0.5, 0,
+      -0.5,  0.5, 0
     ]);
     
-    // 纹理坐标
     const texCoords = new Float32Array([
-      0, 0,  // 左下
-      1, 0,  // 右下
-      1, 1,  // 右上
-      0, 1   // 左上
+      0, 0, 1, 0, 1, 1, 0, 1
     ]);
     
-    // 索引
     const indices = new Uint16Array([
-      0, 1, 2,
-      0, 2, 3
+      0, 1, 2, 0, 2, 3
     ]);
     
-    // 创建顶点缓冲区
-    this.vertexBuffer = new (Cesium as any).Buffer({
-      context: (this.viewer.scene as any).context,
-      typedArray: positions,
-      usage: (Cesium as any).BufferUsage.STATIC_DRAW
-    });
-    
-    // 创建纹理坐标缓冲区
-    const texCoordBuffer = new (Cesium as any).Buffer({
-      context: (this.viewer.scene as any).context,
-      typedArray: texCoords,
-      usage: (Cesium as any).BufferUsage.STATIC_DRAW
-    });
-    
-    // 创建索引缓冲区
-    this.indexBuffer = new (Cesium as any).Buffer({
-      context: (this.viewer.scene as any).context,
-      typedArray: indices,
-      usage: (Cesium as any).BufferUsage.STATIC_DRAW,
-      indexDatatype: (Cesium as any).IndexDatatype.UNSIGNED_SHORT
-    });
+    this.cesiumContext = (this.viewer.scene as any).context;
     
     // 创建几何属性
-    const attributes = new (Cesium as any).GeometryAttributes({
-      position: new (Cesium as any).GeometryAttribute({
-        componentDatatype: (Cesium as any).ComponentDatatype.FLOAT,
+    const attributes = new cesium.GeometryAttributes({
+      position: new cesium.GeometryAttribute({
+        componentDatatype: cesium.ComponentDatatype.FLOAT,
         componentsPerAttribute: 3,
         normalize: false,
         values: positions
       }),
-      st: new (Cesium as any).GeometryAttribute({
-        componentDatatype: (Cesium as any).ComponentDatatype.FLOAT,
+      st: new cesium.GeometryAttribute({
+        componentDatatype: cesium.ComponentDatatype.FLOAT,
         componentsPerAttribute: 2,
         normalize: false,
         values: texCoords
       })
     });
     
-    this.geometry = new Cesium.Geometry({
+    this.geometry = new cesium.Geometry({
       attributes: attributes,
       indices: indices,
-      primitiveType: Cesium.PrimitiveType.TRIANGLES,
-      boundingSphere: Cesium.BoundingSphere.fromVertices(Array.from(positions))
+      primitiveType: cesium.PrimitiveType.TRIANGLES,
+      boundingSphere: cesium.BoundingSphere.fromVertices(Array.from(positions))
     });
     
     console.log('Base geometry created');
   }
   
   /**
-   * 创建外观（着色器）
+   * 创建外观（着色器）—— BillboardCollection 风格纹理采样
+   * 使用 PerInstanceColorAppearance 支持每实例颜色
    */
   private createAppearance(): void {
-    // 创建自定义着色器
-    // TODO: 实现完整的军事符号着色器
-    const vertexShaderSource = `
-      attribute vec3 position;
-      attribute vec2 texCoord;
-      
-      varying vec2 v_texCoord;
-      
-      void main() {
-        v_texCoord = texCoord;
-        gl_Position = czm_projection * czm_modelView * vec4(position, 1.0);
-      }
-    `;
+    const cesium = this.getCesiumCtx();
     
-    const fragmentShaderSource = `
-      varying vec2 v_texCoord;
-      uniform sampler2D u_texture;
-      
-      void main() {
-        gl_FragColor = texture2D(u_texture, v_texCoord);
-      }
-    `;
-    
-    this.appearance = new Cesium.Appearance({
-      material: undefined,
-      translucent: false,
-      vertexShaderSource: vertexShaderSource,
-      fragmentShaderSource: fragmentShaderSource
+    // 使用 PerInstanceColorAppearance 以支持每实例颜色
+    this.appearance = new cesium.PerInstanceColorAppearance({
+      translucent: true,
+      closed: false,
+      flat: true,
+      faceForward: true,
+      vertexShaderSource: undefined,
+      fragmentShaderSource: undefined
     });
     
-    console.log('Cesium.Appearance created');
+    console.log('PerInstanceColorAppearance created');
   }
   
   /**
-   * 创建 Cesium Cesium.Primitive 对象
+   * 创建 Cesium PrimitiveCollection（支持动态增删图元）
    */
   private createCesiumPrimitive(): void {
-    this.primitive = new Cesium.Primitive({
-      geometryInstances: [],  // 开始时为空
-      appearance: this.appearance!,
-      asynchronous: false,
-      show: true
-    });
+    const cesium = this.getCesiumCtx();
+    
+    // PrimitiveCollection 允许动态添加/移除 Primitive
+    this.primitives = new cesium.PrimitiveCollection();
     
     // 添加到场景
-    this.viewer.scene.primitives.add(this.primitive);
+    this.viewer.scene.primitives.add(this.primitives);
     
-    console.log('Cesium Cesium.Primitive created and added to scene');
+    console.log('Cesium PrimitiveCollection created and added to scene');
+  }
+  
+  /**
+   * 获取 Cesium 静态引用
+   */
+  private getCesiumCtx(): any {
+    return Cesium;
   }
   
   /**
@@ -747,22 +721,92 @@ export class HighPerformancePrimitiveRenderer {
   
   /**
    * 执行视锥剔除
+   * 基于相机视锥体与实例位置包围球的相交测试
    */
   private performFrustumCulling(): void {
-    // TODO: 实现视锥剔除
-    // 基于空间索引快速剔除不可见实例
-    this.stats.visibleCount = this.instances.size;
-    this.stats.culledCount = 0;
+    const camera = this.viewer.camera;
+    const frustum = camera.frustum;
+    if (!frustum) {
+      this.stats.visibleCount = this.instances.size;
+      this.stats.culledCount = 0;
+      return;
+    }
+    
+    const cesium = this.getCesiumCtx();
+    const scratchSphere = new cesium.BoundingSphere();
+    let visible = 0;
+    
+    for (const instance of this.instances.values()) {
+      if (!instance.visible) continue;
+      
+      // 位置世界坐标转相机空间进行剔除
+      const [lng, lat, alt = 0] = instance.primitive.position;
+      const pos = cesium.Cartesian3.fromDegrees(lng, lat, alt);
+      
+      scratchSphere.center = pos;
+      scratchSphere.radius = this.getBoundingRadius(instance);
+      
+      // 相交测试
+      const intersection = frustum.computeCullingVolume(
+        camera.positionWC,
+        camera.directionWC,
+        camera.upWC
+      ).computeVisibility(scratchSphere);
+      
+      const isVisible = intersection !== cesium.Intersect.OUTSIDE;
+      instance.visible = isVisible;
+      visible += isVisible ? 1 : 0;
+    }
+    
+    this.stats.visibleCount = visible;
+    this.stats.culledCount = this.instances.size - visible;
   }
   
   /**
-   * 更新 LOD 级别
+   * 估算实例的包围球半径
+   */
+  private getBoundingRadius(instance: any): number {
+    const scale = instance.primitive.visualization.scale || 1.0;
+    // 以10米为基准，按scale缩放
+    return 10.0 * scale + 50.0; // 至少50米防止太小导致闪烁
+  }
+  
+  /**
+   * 更新 LOD 级别（基于相机距离）
    */
   private updateLodLevels(): void {
-    // TODO: 基于距离计算 LOD 级别
+    const camera = this.viewer.camera;
+    if (!camera) return;
+    
+    const cesium = this.getCesiumCtx();
+    const scratchCart = new cesium.Cartographic();
+    const maxLod = this.config.lodLevels - 1;
+    
+    // LOD 距离阈值
+    const distances = [5000, 20000, 50000]; // 5km, 20km, 50km
+    
     for (const instance of this.instances.values()) {
-      // 简化为固定 LOD
-      instance.lodLevel = 0;
+      if (!instance.visible) continue;
+      
+      const [lng, lat, alt = 0] = instance.primitive.position;
+      const pos = cesium.Cartesian3.fromDegrees(lng, lat, alt);
+      
+      // 计算到相机的距离
+      const distance = cesium.Cartesian3.distance(pos, camera.positionWC);
+      
+      // 根据距离分配 LOD
+      let lod = 0;
+      for (let i = 0; i < distances.length; i++) {
+        if (distance > distances[i]) {
+          lod = i + 1;
+        }
+      }
+      instance.lodLevel = Math.min(lod, maxLod);
+      
+      // 超远距离隐藏
+      if (distance > 200000) {
+        instance.visible = false;
+      }
     }
   }
   
@@ -818,11 +862,96 @@ export class HighPerformancePrimitiveRenderer {
   
   /**
    * 更新 GPU 缓冲区
+   * 为脏实例创建/更新 GeometryInstance 并添加到 PrimitiveCollection
    */
   private updateGpuBuffers(instanceData: any[]): void {
-    // TODO: 实现 GPU 缓冲区更新
-    // 需要更新实例属性缓冲区
-    console.log(`Would update GPU buffers for ${instanceData.length} instances`);
+    if (!this.primitives || instanceData.length === 0) return;
+    
+    const cesium = this.getCesiumCtx();
+    
+    for (const data of instanceData) {
+      const instance = this.instances.get(data.id);
+      if (!instance) continue;
+      
+      const [lng, lat, alt = 0] = instance.primitive.position;
+      const pos = cesium.Cartesian3.fromDegrees(lng, lat, alt);
+      
+      // 创建模型矩阵（位置 + 朝向 + 缩放）
+      const scale = data.scale;
+      const rotation = data.rotation || 0;
+      
+      // 简化的模型矩阵：LOH
+      const hpr = new cesium.HeadingPitchRoll(rotation, 0, 0);
+      const modelMatrix = cesium.Transforms.headingPitchRollToFixedFrame(
+        pos, hpr, cesium.Ellipsoid.WGS84, cesium.Transforms.localFrameToFixedFrameGenerator('north', 'east')
+      );
+      
+      // 应用缩放
+      const scaleMatrix = cesium.Matrix4.fromScale(
+        new cesium.Cartesian3(scale, scale, scale)
+      );
+      cesium.Matrix4.multiply(modelMatrix, scaleMatrix, modelMatrix);
+      
+      // 创建带颜色的几何实例
+      const color = new cesium.Color(
+        data.color[0] / 255,
+        data.color[1] / 255,
+        data.color[2] / 255,
+        1.0
+      );
+      
+      const geometryInstance = new cesium.GeometryInstance({
+        geometry: this.geometry,
+        modelMatrix: modelMatrix,
+        attributes: {
+          color: cesium.ColorGeometryInstanceAttribute.fromColor(color)
+        }
+      });
+      
+      // 如果已有旧 Primitive，先移除
+      if (instance.geometryInstance) {
+        // 查找并移除对应的 Primitive
+        const oldPrim = this.findPrimitiveByInstance(instance.geometryInstance);
+        if (oldPrim) {
+          this.primitives.remove(oldPrim);
+          (oldPrim as any).destroy();
+        }
+      }
+      
+      // 创建新的 Primitive 并添加到集合
+      const newPrim = new cesium.Primitive({
+        geometryInstances: [geometryInstance],
+        appearance: this.appearance,
+        asynchronous: false,
+        show: instance.visible
+      });
+      
+      this.primitives.add(newPrim);
+      instance.geometryInstance = geometryInstance;
+      
+      // 更新统计
+      this.stats.drawCalls += 1;
+    }
+    
+    this.stats.bufferUpdateCount++;
+  }
+  
+  /**
+   * 查找指定 GeometryInstance 所属的 Primitive
+   */
+  private findPrimitiveByInstance(instance: any): any {
+    if (!this.primitives) return null;
+    for (let i = 0; i < this.primitives.length; i++) {
+      const prim = this.primitives.get(i);
+      if (!prim) continue;
+      const instances = (prim as any).geometryInstances;
+      if (instances && Array.isArray(instances)) {
+        for (const gi of instances) {
+          if (gi === instance) return prim;
+        }
+      }
+    }
+    return null;
   }
   
   /**
@@ -873,7 +1002,7 @@ export class HighPerformancePrimitiveRenderer {
    */
   private updateRealTimeStats(): void {
     // 更新绘制调用统计（简化）
-    this.stats.drawCalls = this.primitive ? 1 : 0;
+    this.stats.drawCalls = this.primitives ? this.primitives.length : 0;
     
     // 更新内存使用
     this.stats.memoryUsage = this.calculateMemoryUsage();
@@ -916,8 +1045,36 @@ export class HighPerformancePrimitiveRenderer {
    * 渲染调试覆盖层
    */
   private renderDebugOverlay(): void {
-    // TODO: 实现调试覆盖层渲染
-    // 显示实例边界框、LOD 级别等信息
+    // 使用 Canvas 2D 叠加显示调试信息
+    if (!this.config.showDebugOverlay) return;
+    
+    const debugInfo = {
+      instances: this.instances.size,
+      visible: this.stats.visibleCount,
+      culled: this.stats.culledCount,
+      drawCalls: this.stats.drawCalls,
+      frameTime: this.stats.frameTime.toFixed(1),
+      memory: (this.stats.memoryUsage / 1024 / 1024).toFixed(1)
+    };
+    
+    // 通过 console 输出调试信息会污染日志
+    // 更好的做法：用 overlay DOM
+    const overlayId = '__hp_debug_overlay';
+    let overlay = document.getElementById(overlayId);
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = overlayId;
+      overlay.style.cssText = 'position:fixed;top:80px;right:10px;background:rgba(0,0,0,0.7);color:#0f0;padding:8px;font:12px monospace;z-index:9999;border-radius:4px;pointer-events:none;';
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = [
+      `Instances: ${debugInfo.instances}`,
+      `Visible: ${debugInfo.visible}`,
+      `Culled: ${debugInfo.culled}`,
+      `Draw Calls: ${debugInfo.drawCalls}`,
+      `Frame: ${debugInfo.frameTime}ms`,
+      `Memory: ${debugInfo.memory}MB`
+    ].join('<br>');
   }
   
   /**

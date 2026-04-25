@@ -65,3 +65,4 @@ export type {
 
 // 工具类导出
 export { SIDCValidator } from './utils/sidc-validator';
+export { MilSIDC, GroundSymbols, AirSymbols, SeaSymbols } from './utils/mil-symbols';

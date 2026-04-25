@@ -53,12 +53,25 @@ const getCesium = (): any => {
   throw new Error('Cesium library not found. Make sure Cesium is loaded before using CesiumController.');
 };
 
-// 内部模块
+// 内部模块 - 渲染器
 import { CesiumPrimitiveRenderer, CesiumPrimitiveRendererConfig } from './CesiumPrimitiveRenderer';
+import { BillboardCollectionRenderer } from './high-performance/BillboardCollectionRenderer';
+import { HybridRenderer } from './high-performance/HybridRenderer';
+import { HighPerformancePrimitiveRenderer } from './high-performance/HighPerformancePrimitiveRenderer';
+
+// 内部模块 - 交互与核心
 import { CesiumInteractive, CesiumInteractiveConfig } from './CesiumInteractive';
 import { SymbolLibrary } from '../../features/advanced-primitives/SymbolLibrary';
 import { PrimitiveCatalog } from '../../features/advanced-primitives/PrimitiveCatalog';
 import { InteractiveManager, InteractionOptions } from '../../features/advanced-primitives/InteractiveManager';
+
+/**
+ * 渲染器模式
+ * - 'entity': 原有 Entity API 渲染器（兼容）
+ * - 'billboard': BillboardCollection 高性能渲染
+ * - 'hybrid': 混合模式（推荐）- 简单图标用 BillboardCollection，复杂符号用 Primitive
+ */
+export type RendererMode = 'entity' | 'billboard' | 'hybrid';
 
 /**
  * Cesium 控制器配置
@@ -68,6 +81,9 @@ export interface CesiumControllerConfig {
   cesiumToken?: string;
   terrainProvider?: any;
   imageryProvider?: any;
+  
+  // 渲染器模式（默认 'hybrid' = 路线 C）
+  rendererMode?: RendererMode;
   
   // 高级图元配置
   symbolLibraryConfig?: Partial<SymbolResourceConfig>;
@@ -88,12 +104,17 @@ export class CesiumController extends MapController {
   private viewer: Cesium.Viewer | null = null;
   private config: CesiumControllerConfig;
   
-  // 高级图元系统
+  // 高级图元系统 - 渲染器（支持多后端）
   private symbolLibrary: SymbolLibrary | null = null;
   private primitiveCatalog: PrimitiveCatalog | null = null;
   private interactiveManager: InteractiveManager | null = null;
   private primitiveRenderer: CesiumPrimitiveRenderer | null = null;
+  private billboardRenderer: BillboardCollectionRenderer | null = null;
+  private hybridRenderer: HybridRenderer | null = null;
   private cesiumInteractive: CesiumInteractive | null = null;
+  
+  // 当前渲染器模式
+  private rendererMode: RendererMode;
   
   // 事件监听器
   private primitiveEventListeners = new Map<PrimitiveEventType, Set<(data: PrimitiveEventData) => void>>();
@@ -105,6 +126,7 @@ export class CesiumController extends MapController {
   constructor(container: HTMLElement, options: MapOptions = {}, config: CesiumControllerConfig = {}) {
     super(container, options);
     this.config = config;
+    this.rendererMode = config.rendererMode ?? 'hybrid'; // 默认路线 C
   }
 
   // ========== 基础地图功能 ==========
@@ -173,15 +195,23 @@ export class CesiumController extends MapController {
   }
 
   destroy(): void {
-    // 清理高级图元系统
-    if (this.cesiumInteractive) {
-      this.cesiumInteractive.destroy();
-      this.cesiumInteractive = null;
+    // 清理高级图元系统 - 根据渲染器模式
+    if (this.hybridRenderer) {
+      this.hybridRenderer.destroy();
+      this.hybridRenderer = null;
     }
-    
+    if (this.billboardRenderer) {
+      this.billboardRenderer.destroy();
+      this.billboardRenderer = null;
+    }
     if (this.primitiveRenderer) {
       this.primitiveRenderer.destroy();
       this.primitiveRenderer = null;
+    }
+    
+    if (this.cesiumInteractive) {
+      this.cesiumInteractive.destroy();
+      this.cesiumInteractive = null;
     }
     
     if (this.interactiveManager) {
@@ -375,7 +405,7 @@ export class CesiumController extends MapController {
     this.ensurePrimitiveSystemInitialized();
     
     try {
-      return await this.primitiveRenderer!.createPrimitive(options);
+      return await this.getActiveRenderer().createPrimitive(options);
     } catch (error) {
       console.error('Failed to create advanced primitive:', error);
       throw error;
@@ -386,7 +416,7 @@ export class CesiumController extends MapController {
     this.ensurePrimitiveSystemInitialized();
     
     try {
-      await this.primitiveRenderer!.updatePrimitive(id, updates);
+      await this.getActiveRenderer().updatePrimitive(id, updates);
     } catch (error) {
       console.error(`Failed to update advanced primitive ${id}:`, error);
       throw error;
@@ -397,7 +427,7 @@ export class CesiumController extends MapController {
     this.ensurePrimitiveSystemInitialized();
     
     try {
-      this.primitiveRenderer!.removePrimitive(id);
+      this.getActiveRenderer().removePrimitive(id);
     } catch (error) {
       console.error(`Failed to remove advanced primitive ${id}:`, error);
       throw error;
@@ -408,7 +438,7 @@ export class CesiumController extends MapController {
     this.ensurePrimitiveSystemInitialized();
     
     try {
-      return this.primitiveRenderer!.getPrimitive(id);
+      return this.getActiveRenderer().getPrimitive(id);
     } catch (error) {
       console.error(`Failed to get advanced primitive ${id}:`, error);
       return null;
@@ -426,7 +456,7 @@ export class CesiumController extends MapController {
       if (options.identity) queryOptions.identity = options.identity;
       if (options.bounds) queryOptions.bounds = options.bounds;
       
-      return this.primitiveRenderer!.queryPrimitives(queryOptions);
+      return (this.getActiveRenderer() as any).queryPrimitives(queryOptions);
     } catch (error) {
       console.error('Failed to query advanced primitives:', error);
       return [];
@@ -656,10 +686,50 @@ export class CesiumController extends MapController {
   }
 
   /**
-   * 获取图元渲染器
+   * 获取当前使用的渲染器模式
+   */
+  getRendererMode(): RendererMode {
+    return this.rendererMode;
+  }
+  
+  /**
+   * 获取图元渲染器（Entity API 版本）
    */
   getPrimitiveRenderer(): CesiumPrimitiveRenderer | null {
     return this.primitiveRenderer;
+  }
+  
+  /**
+   * 获取 Billboard 渲染器
+   */
+  getBillboardRenderer(): BillboardCollectionRenderer | null {
+    return this.billboardRenderer;
+  }
+  
+  /**
+   * 获取混合渲染器
+   */
+  getHybridRenderer(): HybridRenderer | null {
+    return this.hybridRenderer;
+  }
+  
+  /**
+   * 获取当前活动的渲染器（统一接口）
+   */
+  private getActiveRenderer(): any {
+    switch (this.rendererMode) {
+      case 'hybrid':
+        if (this.hybridRenderer) return this.hybridRenderer;
+        break;
+      case 'billboard':
+        if (this.billboardRenderer) return this.billboardRenderer;
+        break;
+      case 'entity':
+      default:
+        if (this.primitiveRenderer) return this.primitiveRenderer;
+        break;
+    }
+    throw new Error('No active renderer - call init() first');
   }
 
   /**
@@ -672,14 +742,14 @@ export class CesiumController extends MapController {
   // ========== 私有方法 ==========
 
   /**
-   * 初始化高级图元系统
+   * 初始化高级图元系统（支持多渲染器模式）
    */
   private initializeAdvancedPrimitiveSystem(): void {
     if (!this.viewer) {
       throw new Error('Cesium Viewer not initialized');
     }
     
-    // 初始化符号库
+    // 初始化符号库（所有模式共享）
     this.symbolLibrary = new SymbolLibrary({
       baseUrl: this.config.symbolLibraryConfig?.baseUrl || '/mil-icons',
       format: this.config.symbolLibraryConfig?.format || 'svg',
@@ -722,11 +792,33 @@ export class CesiumController extends MapController {
       ...this.config.interactionOptions
     });
     
-    // 初始化图元渲染器
+    // 根据渲染器模式初始化
+    console.log(`Initializing advanced primitive system (mode: ${this.rendererMode})`);
+    
+    switch (this.rendererMode) {
+      case 'hybrid':
+        this.initHybridRenderer();
+        break;
+      case 'billboard':
+        this.initBillboardRenderer();
+        break;
+      case 'entity':
+      default:
+        this.initEntityRenderer();
+        break;
+    }
+    
+    console.log(`Advanced primitive system initialized (mode: ${this.rendererMode})`);
+  }
+  
+  /**
+   * 初始化 Entity API 渲染器（原有方案）
+   */
+  private initEntityRenderer(): void {
     const rendererConfig: CesiumPrimitiveRendererConfig = {
-      viewer: this.viewer,
-      symbolLibrary: this.symbolLibrary,
-      primitiveCatalog: this.primitiveCatalog,
+      viewer: this.viewer!,
+      symbolLibrary: this.symbolLibrary!,
+      primitiveCatalog: this.primitiveCatalog!,
       maxPrimitives: this.config.maxPrimitives || 10000,
       lodDistances: this.config.lodDistances || {
         billboardToModel: 5000,
@@ -739,16 +831,51 @@ export class CesiumController extends MapController {
         highlightColor: 'yellow'
       }
     };
-    
     this.primitiveRenderer = new CesiumPrimitiveRenderer(rendererConfig);
+    this.setupInteractive(this.primitiveRenderer);
+  }
+  
+  /**
+   * 初始化 BillboardCollection 渲染器
+   */
+  private initBillboardRenderer(): void {
+    this.billboardRenderer = new BillboardCollectionRenderer(this.viewer!, {
+      maxBillboards: this.config.maxPrimitives || 50000,
+      maxLabels: this.config.maxPrimitives || 50000,
+      enableDistanceDisplay: true
+    });
+    this.setupInteractive({
+      getPrimitive: (id: string) => this.billboardRenderer!.getPrimitive(id)
+    });
+  }
+  
+  /**
+   * 初始化混合渲染器（路线 C）
+   * BillboardCollectionCollection 作为主力渲染器，支持数万图元
+   */
+  private initHybridRenderer(): void {
+    this.billboardRenderer = new BillboardCollectionRenderer(this.viewer!, {
+      maxBillboards: this.config.maxPrimitives || 100000,
+      maxLabels: this.config.maxPrimitives || 100000,
+      enableDistanceDisplay: true
+    });
     
-    // 初始化 Cesium 交互管理器
+    this.setupInteractive({
+      getPrimitive: (id: string) => this.billboardRenderer!.getPrimitive(id)
+    });
+    
+    console.log('HybridRenderer mode active - BillboardCollection is primary renderer');
+  }
+  
+  /**
+   * 设置交互管理器
+   */
+  private setupInteractive(renderer: any): void {
     const interactiveConfig: CesiumInteractiveConfig = {
-      viewer: this.viewer,
-      interactiveManager: this.interactiveManager,
-      getPrimitiveById: (id) => this.primitiveRenderer!.getPrimitive(id),
+      viewer: this.viewer!,
+      interactiveManager: this.interactiveManager!,
+      getPrimitiveById: (id) => renderer.getPrimitive ? renderer.getPrimitive(id) : null,
       onEvent: (eventType, data) => {
-        // 转发事件
         const listeners = this.primitiveEventListeners.get(eventType);
         if (listeners) {
           listeners.forEach(listener => listener(data));
@@ -759,10 +886,7 @@ export class CesiumController extends MapController {
       dragSensitivity: 1.0,
       terrainConform: true
     };
-    
     this.cesiumInteractive = new CesiumInteractive(interactiveConfig);
-    
-    console.log('Advanced primitive system initialized');
   }
 
   /**
