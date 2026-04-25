@@ -97,35 +97,8 @@ export interface CesiumControllerConfig {
   };
 }
 
-/**
- * 从 SIDC 自动提取敌我阵营标识
- * MIL-STD-2525D 中，敌我编码内嵌在 SIDC 中：
- *   位置 0-1: 符号集 (SF=友方, SH=敌方, SN=中立, SU=未知)
- *   位置 10:  标准阵营 (A=友方, H=敌方, N=中立, U=未知)
- *
- * SIDC 是敌我属性的权威来源。
- * 若用户通过 properties.identity 提供了覆盖值，则以用户为准。
- */
-export function identityFromSidc(sidc: string): string {
-  if (!sidc || sidc.length < 11) return 'unknown';
-  const s = sidc.toUpperCase();
-
-  // 1) 位置 10（标准阵营位）最精准
-  const charMap: Record<string, string> = {
-    'A': 'friend', 'H': 'hostile', 'N': 'neutral',
-    'U': 'unknown', 'P': 'pending', 'S': 'suspect',
-    'J': 'joker', 'F': 'faker'
-  };
-  if (charMap[s[10]]) return charMap[s[10]];
-
-  // 2) 符号集前缀（位置 0-1）兜底
-  const prefix = s.substring(0, 2);
-  const prefixMap: Record<string, string> = {
-    'SF': 'friend', 'SH': 'hostile', 'SN': 'neutral',
-    'SU': 'unknown', 'SO': 'friend', 'SW': 'unknown'
-  };
-  return prefixMap[prefix] || 'unknown';
-}
+/** 从 SIDC 提取敌我阵营标识（统一使用 mil-symbols 中的版本）*/
+import { identityFromSidc, resolveSidc, SymbolType } from '../../utils/mil-symbols';
 
 /**
  * Cesium 控制器实现
@@ -492,7 +465,64 @@ export class CesiumController extends MapController {
       throw error;
     }
   }
-  
+
+  /**
+   * 创建军标（简化 API）
+   *
+   * 用户无需关心 SIDC 编码，只需指定军标类型和敌我属性。
+   * 默认敌我属性为 'friend'（友方），自动映射正确的 SIDC 和颜色。
+   *
+   * @param options.type      军标类型（SymbolType 枚举）
+   * @param options.identity  敌我属性（'friend'|'hostile'|'neutral'|'unknown'，默认 'friend'）
+   * @param options.position  位置 [经度°, 纬度°, 高度米]
+   * @param options.name      显示名称（可选）
+   * @param options.scale     缩放比例（可选，默认 1.0）
+   * @param options.use3DModel 是否启用 3D 模型过渡（可选）
+   * @param options.modelUrl  3D 模型 URL（可选）
+   *
+   * 示例：
+   *   await ctrl.addSymbol({
+   *     type: SymbolType.GROUND_TANK,       // 坦克
+   *     identity: 'hostile',                 // 敌方（默认 friend）
+   *     position: [116.4, 39.9, 0],
+   *     name: '敌方装甲连'
+   *   });
+   */
+  async addSymbol(options: {
+    type: string;
+    identity?: string;
+    position: [number, number, number];
+    name?: string;
+    scale?: number;
+    use3DModel?: boolean;
+    modelUrl?: string;
+  }): Promise<string> {
+    const identity = options.identity || 'friend';
+    const type = options.type as any;
+
+    // 解析 SIDC：类型 + 敌我 → 15 位编码
+    let sidc: string;
+    try {
+      sidc = resolveSidc(type, identity);
+    } catch (e) {
+      sidc = type;
+    }
+
+    return this.createAdvancedPrimitive({
+      sidc,
+      position: options.position,
+      properties: {
+        identity: identity as any,
+        name: options.name || ''
+      },
+      visualization: {
+        scale: options.scale ?? 1.0,
+        use3DModel: options.use3DModel ?? false,
+        modelUrl: options.modelUrl
+      }
+    });
+  }
+
   async updateAdvancedPrimitive(id: string, updates: PrimitiveUpdateOptions): Promise<void> {
     this.ensurePrimitiveSystemInitialized();
     

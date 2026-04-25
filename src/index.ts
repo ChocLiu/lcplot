@@ -5,7 +5,7 @@ export type { EngineType } from './core/MapFactory';
 
 // 适配器导出
 export { OpenLayersController } from './adapters/openlayers';
-export { CesiumController, identityFromSidc } from './adapters/cesium';
+export { CesiumController } from './adapters/cesium';
 
 // 类型导出
 export type {
@@ -65,4 +65,8 @@ export type {
 
 // 工具类导出
 export { SIDCValidator } from './utils/sidc-validator';
-export { MilSIDC, GroundSymbols, AirSymbols, SeaSymbols } from './utils/mil-symbols';
+export {
+  MilSIDC, GroundSymbols, AirSymbols, SeaSymbols,
+  SymbolType, resolveSidc, identityFromSidc,
+  SymbolTypeNames, symbolTypeDomain, SymbolTypeGroups
+} from './utils/mil-symbols';
