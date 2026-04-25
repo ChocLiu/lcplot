@@ -111,6 +111,14 @@ export enum SymbolType {
   SOF_TEAM = 'SOF_TEAM',
   SOF_AVIATION = 'SOF_AVIATION',
   SOF_NAVAL = 'SOF_NAVAL',
+
+  // ========= 低空民用/小型无人机 =========
+  LOW_ALT_CIVILIAN_UAV = 'LOW_ALT_CIVILIAN_UAV',   // 民用无人机
+  LOW_ALT_BIRD = 'LOW_ALT_BIRD',                    // 鸟类
+  LOW_ALT_BALLOON = 'LOW_ALT_BALLOON',             // 气球
+
+  // ========= 空中民用 =========
+  AIR_CIVILIAN_AIRCRAFT = 'AIR_CIVILIAN_AIRCRAFT', // 民用飞机
 }
 
 // ==================== 类型 → 基础 SIDC 映射（友方版） ====================
@@ -173,6 +181,14 @@ const TYPE_BASE_SIDC: Record<SymbolType, string> = {
   [SymbolType.SOF_TEAM]:               '__GFSO---A---',
   [SymbolType.SOF_AVIATION]:           '__AFSO---A---',
   [SymbolType.SOF_NAVAL]:              '__SFSO---A---',
+
+  // === 低空民用/小型无人机 ===
+  [SymbolType.LOW_ALT_CIVILIAN_UAV]:   '__OLUAV--A---',
+  [SymbolType.LOW_ALT_BIRD]:           '__OLBIRD-A---',
+  [SymbolType.LOW_ALT_BALLOON]:        '__OLBLN--A---',
+
+  // === 空中民用 ===
+  [SymbolType.AIR_CIVILIAN_AIRCRAFT]:  '__OACIV---A---',
 };
 
 // ==================== 便捷别名（类型 → 中文名） ====================
@@ -224,6 +240,11 @@ export const SymbolTypeNames: Partial<Record<SymbolType, string>> = {
   [SymbolType.SOF_TEAM]: '特种作战小队',
   [SymbolType.SOF_AVIATION]: '特种作战航空',
   [SymbolType.SOF_NAVAL]: '特种作战海上',
+
+  [SymbolType.LOW_ALT_CIVILIAN_UAV]: '民用无人机',
+  [SymbolType.LOW_ALT_BIRD]: '鸟类',
+  [SymbolType.LOW_ALT_BALLOON]: '气球',
+  [SymbolType.AIR_CIVILIAN_AIRCRAFT]: '民用飞机',
 };
 
 // ==================== 领域分组 ====================
@@ -275,6 +296,14 @@ export const SymbolTypeGroups: Record<string, SymbolType[]> = {
     SymbolType.SOF_TEAM,
     SymbolType.SOF_AVIATION,
     SymbolType.SOF_NAVAL,
+  ],
+  low_altitude: [
+    SymbolType.LOW_ALT_CIVILIAN_UAV,
+    SymbolType.LOW_ALT_BIRD,
+    SymbolType.LOW_ALT_BALLOON,
+  ],
+  air_civilian: [
+    SymbolType.AIR_CIVILIAN_AIRCRAFT,
   ]
 };
 

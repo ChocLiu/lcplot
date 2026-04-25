@@ -7,15 +7,16 @@
  * 军事领域划分
  */
 export enum MilitaryDomain {
-  LAND = 'land',          // 陆地
-  SEA = 'sea',            // 海上
-  AIR = 'air',            // 空中
-  SPACE = 'space',        // 太空
-  SUBSURFACE = 'subsurface', // 水下
-  SOF = 'sof',            // 特种作战
-  CYBER = 'cyber',        // 网络空间
-  SIGNAL = 'signal',      // 信号
-  ACTIVITY = 'activity'   // 活动
+  LAND = 'land',              // 陆地
+  SEA = 'sea',                // 海上
+  AIR = 'air',                // 空中
+  SPACE = 'space',            // 太空
+  SUBSURFACE = 'subsurface',  // 水下
+  SOF = 'sof',                // 特种作战
+  LOW_ALTITUDE = 'low_altitude', // 低空（民用/小型UAV场景）
+  CYBER = 'cyber',            // 网络空间
+  SIGNAL = 'signal',          // 信号
+  ACTIVITY = 'activity'       // 活动
 }
 
 /**
@@ -159,6 +160,72 @@ export interface VisualizationConfig {
   };
 }
 
+// ========== 平滑移动、轨迹、预设路线 ==========
+
+/**
+ * 平滑移动配置
+ */
+export interface MovementConfig {
+  enabled: boolean;                    // 是否启用平滑移动
+  durationMs: number;                  // 移动过渡时长（毫秒，默认 1000）
+  interpolation?: 'linear' | 'lerp';   // 插值方式
+  easingFunction?: (t: number) => number; // 缓动函数（可选，覆盖 interpolation）
+}
+
+/**
+ * 轨迹配置
+ */
+export interface TrailConfig {
+  enabled: boolean;                    // 是否启用轨迹
+  maxPoints: number;                   // 最大轨迹点数
+  color?: string;                      // 轨迹颜色
+  width?: number;                      // 轨迹线宽（像素）
+  fadeDuration?: number;               // 渐变消失时长（毫秒）
+  opacity?: number;                    // 透明度 (0-1)
+}
+
+/**
+ * 路径点
+ */
+export interface Waypoint {
+  position: [number, number, number];  // [经度, 纬度, 高度]
+  label?: string;                      // 标签
+  speed?: number;                      // 途经速度（可选）
+}
+
+/**
+ * 预设路线可视化配置
+ */
+export interface RouteVisualizationConfig {
+  enabled: boolean;                    // 是否显示路线
+  
+  // 方向移动虚线
+  dashColor?: string;                  // 虚线颜色
+  dashWidth?: number;                  // 虚线宽度（像素）
+  dashLength?: number;                 // 虚线段长度（像素）
+  dashSpeed?: number;                  // 虚线动画速度（像素/秒）
+  
+  // 管道（Pipe）/ 走廊
+  showPipe?: boolean;                  // 是否显示半透明管道
+  pipeWidth?: number;                  // 管道宽度（米）
+  pipeHeight?: number;                 // 管道高度（米）
+  pipeColor?: string;                  // 管道颜色
+  pipeOpacity?: number;                // 管道透明度 (0-1)
+  
+  // 路径点
+  showWaypoints?: boolean;             // 是否显示路径点
+  waypointColor?: string;             // 路径点颜色
+  waypointSize?: number;              // 路径点大小（像素）
+}
+
+/**
+ * 预设路线数据
+ */
+export interface RouteConfig {
+  waypoints: Waypoint[];               // 路径点列表
+  visualization?: RouteVisualizationConfig; // 可视化配置
+}
+
 /**
  * 高级图元定义
  */
@@ -179,6 +246,15 @@ export interface AdvancedPrimitive {
   
   // 可视化配置
   visualization: VisualizationConfig;
+  
+  // 平滑移动配置
+  movement?: MovementConfig;
+  
+  // 轨迹配置
+  trail?: TrailConfig;
+  
+  // 预设路线
+  route?: RouteConfig;
   
   // 元数据
   metadata?: {
@@ -203,6 +279,9 @@ export interface PrimitiveCreateOptions {
   properties?: Partial<PrimitiveBaseProperties>;
   interaction?: Partial<InteractionConfig>;
   visualization?: Partial<VisualizationConfig>;
+  movement?: Partial<MovementConfig>;
+  trail?: Partial<TrailConfig>;
+  route?: RouteConfig;
   metadata?: Partial<AdvancedPrimitive['metadata']>;
   
   // 批量创建时的分组标识

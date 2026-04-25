@@ -1,9 +1,71 @@
 # LCPLOT 项目进度报告
-## 2026-04-25（v0.2.0-alpha → v0.3.0-alpha）
+## 2026-04-25（v0.3.0-alpha → v0.4.0-alpha）
 
 ## ✅ 已完成的工作
 
-### 【新增】SymbolType 军标类型系统 + 简化 API（2026-04-25）
+### 【新增】LOW_ALTITUDE 领域 + 民用类型 + 平滑移动 + 轨迹 + 路线（2026-04-25）
+
+#### LOW_ALTITUDE 领域
+- `MilitaryDomain` 新增 `LOW_ALTITUDE = 'low_altitude'` 枚举值，用于民用/小型UAV/低空场景
+
+#### 民用符号类型（4种）
+- `LOW_ALT_CIVILIAN_UAV`：民用无人机
+- `LOW_ALT_BIRD`：鸟类
+- `LOW_ALT_BALLOON`：气球
+- `AIR_CIVILIAN_AIRCRAFT`：民用飞机（支持型号/序列号等扩展属性）
+- 已加入 `SymbolTypeNames` 中文名称映射
+- 已加入 `SymbolTypeGroups` 领域分组
+- 基础 SIDC 占位模式（非 MIL-STD-2525D 标准，使用 `__O` 前缀表示 Other）
+
+#### 运动/轨迹/路线类型系统
+- `MovementConfig`：平滑移动配置（durationMs、interpolation、缓动函数）
+- `TrailConfig`：轨迹配置（maxPoints、color、width、fadeDuration、opacity）
+- `Waypoint`：路径点（position、label、speed）
+- `RouteConfig`：预设路线（waypoints + visualization）
+- `RouteVisualizationConfig`：路线可视化（虚线属性、管道属性、路径点属性）
+- 上述接口已集成到 `AdvancedPrimitive` 和 `PrimitiveCreateOptions`
+
+#### MovementTrailRouteManager（新文件）
+- **Class**: `MovementTrailRouteManager`（~570行）
+- **平滑移动**：
+  - `startSmoothMove(id, targetPos, config?)`：开始动画插值移动
+  - `stopSmoothMove(id)`：停止移动动画
+  - `getCurrentPosition(id)`：获取当前插值位置
+  - 使用 `requestAnimationFrame` 驱动每帧 `Cartesian3.lerp()` 插值
+  - 支持自定义缓动函数（easingFunction）
+- **轨迹**：
+  - `setTrail(id, enabled, config?)`：启用/禁用位置轨迹
+  - `addTrailPoint(id, position)`：手动添加轨迹点
+  - `clearTrail(id)`：清除轨迹
+  - 使用 `PolylineGeometry` + `PolylineColorAppearance` 渲染
+  - 队列式存储，超出 maxPoints 自动淘汰旧点
+- **路线**：
+  - `setRoute(id, route: RouteConfig)`：渲染预设路线
+  - `clearRoute(id)`：清除路线可视化
+  - 路径点：`BillboardCollection` 圆形标记 + `LabelCollection` 标签
+  - 方向移动虚线：`PolylineGeometry` + 每帧重建实现 dash 偏移动画
+  - 半透明管道：`CorridorGeometry`（以米为单位的 width/height）
+  - 所有渲染均使用 Cesium Primitive API
+
+#### CesiumController 集成
+- 新增 `MovementTrailRouteManager` 实例初始化
+- 新增 7 个公开方法：
+  - `startSmoothMove(id, targetPos, durationMs?)`
+  - `stopSmoothMove(id)`
+  - `setTrail(id, enabled, config?)`
+  - `addTrailPoint(id, position)`
+  - `clearTrail(id)`
+  - `setRoute(id, waypoints[], config?)`
+  - `clearRoute(id)`
+  - `getMovementTrailRouteManager()`
+- destroy() 中正确清理运动管理器
+
+#### Build 结果
+- `npm run build` 通过，无错误无警告
+- 所有 exports 类型正确
+- 向后兼容：旧 API（createAdvancedPrimitive、addSymbol、MilSIDC）不受影响
+
+### 【新增】SymbolType 军标类型系统 + 简化 API（2026-04-25，v0.3.0 已有）
 
 #### SymbolType 枚举（43 种军标类型）
 - **地面 (22种)**：坦克、装甲、步兵、机械化、火炮、防空、侦察、工兵、指挥部、医疗、补给、维修、迫击炮、导弹、桥梁、雷达、通信、运输、宪兵、防化、军事情报
@@ -137,6 +199,7 @@ lcplot/
 │   ├── adapters/cesium/
 │   │   ├── CesiumPrimitiveRenderer.ts    # 图元渲染引擎（Entity API）
 │   │   ├── CesiumInteractive.ts          # 交互管理器
+│   │   ├── MovementTrailRouteManager.ts   # 运动/轨迹/路线管理器
 │   │   ├── index.ts                      # CesiumController + identityFromSidc
 │   │   └── high-performance/
 │   │       ├── BillboardCollectionRenderer.ts # 高性能 2D 图标渲染

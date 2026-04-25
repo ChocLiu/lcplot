@@ -6,6 +6,7 @@ export type { EngineType } from './core/MapFactory';
 // 适配器导出
 export { OpenLayersController } from './adapters/openlayers';
 export { CesiumController } from './adapters/cesium';
+export { MovementTrailRouteManager } from './adapters/cesium/MovementTrailRouteManager';
 
 // 类型导出
 export type {
@@ -39,7 +40,12 @@ export type {
   PrimitiveQueryOptions,
   PrimitiveDataPackage,
   SymbolResourceConfig,
-  PrimitiveEventData
+  PrimitiveEventData,
+  MovementConfig,
+  TrailConfig,
+  Waypoint,
+  RouteConfig,
+  RouteVisualizationConfig
 } from './types';
 
 // 通视分析类型导出

@@ -61,6 +61,7 @@ import { HighPerformancePrimitiveRenderer } from './high-performance/HighPerform
 
 // 内部模块 - 交互与核心
 import { CesiumInteractive, CesiumInteractiveConfig } from './CesiumInteractive';
+import { MovementTrailRouteManager } from './MovementTrailRouteManager';
 import { SymbolLibrary } from '../../features/advanced-primitives/SymbolLibrary';
 import { PrimitiveCatalog } from '../../features/advanced-primitives/PrimitiveCatalog';
 import { InteractiveManager, InteractionOptions } from '../../features/advanced-primitives/InteractiveManager';
@@ -118,6 +119,9 @@ export class CesiumController extends MapController {
   
   // 当前渲染器模式
   private rendererMode: RendererMode;
+  
+  // 运动/轨迹/路线管理器
+  private movementTrailRouteManager: MovementTrailRouteManager | null = null;
   
   // viewer 所有权标记：true = LCPLOT 创建的，destroy 时一并销毁
   private ownsViewer = false;
@@ -259,6 +263,12 @@ export class CesiumController extends MapController {
     if (this.interactiveManager) {
       this.interactiveManager.dispose();
       this.interactiveManager = null;
+    }
+
+    // 清理运动/轨迹/路线管理器
+    if (this.movementTrailRouteManager) {
+      this.movementTrailRouteManager.destroy();
+      this.movementTrailRouteManager = null;
     }
     
     // 销毁 Cesium Viewer（仅当由 LCPLOT 创建时）
@@ -783,6 +793,109 @@ export class CesiumController extends MapController {
     console.warn('removeLineOfSightVisualization not implemented yet');
   }
 
+  // ========== 平滑移动、轨迹、路线系统 ==========
+
+  /**
+   * 开始平滑移动到目标位置
+   * @param id 图元 ID
+   * @param targetPos 目标位置 [经度, 纬度, 高度]
+   * @param durationMs 过渡时长（毫秒，默认 1000）
+   */
+  startSmoothMove(id: string, targetPos: [number, number, number], durationMs?: number): void {
+    if (!this.movementTrailRouteManager) {
+      throw new Error('MovementTrailRouteManager not initialized');
+    }
+    this.movementTrailRouteManager.startSmoothMove(id, targetPos, {
+      enabled: true,
+      durationMs: durationMs ?? 1000
+    });
+
+    // 如果图元存在，同步更新其位置
+    const primitive = this.getAdvancedPrimitive(id);
+    if (primitive) {
+      // 定期从 MovementTrailRouteManager 获取插值位置并更新图元
+      // 使用 requestAnimationFrame 循环更新
+      const animatePosition = () => {
+        const pos = this.movementTrailRouteManager!.getCurrentPosition(id);
+        if (pos) {
+          this.updateAdvancedPrimitive(id, { position: pos });
+        }
+        // 继续下一帧直到移动完成
+        const state = (this.movementTrailRouteManager as any)['states']?.get(id);
+        if (state?.movement?.animating) {
+          requestAnimationFrame(animatePosition);
+        }
+      };
+      requestAnimationFrame(animatePosition);
+    }
+  }
+
+  /**
+   * 停止平滑移动
+   */
+  stopSmoothMove(id: string): void {
+    if (this.movementTrailRouteManager) {
+      this.movementTrailRouteManager.stopSmoothMove(id);
+    }
+  }
+
+  /**
+   * 设置轨迹（位置历史线）
+   */
+  setTrail(id: string, enabled: boolean, config?: any): void {
+    if (!this.movementTrailRouteManager) {
+      throw new Error('MovementTrailRouteManager not initialized');
+    }
+    this.movementTrailRouteManager.setTrail(id, enabled, config);
+  }
+
+  /**
+   * 添加轨迹点
+   */
+  addTrailPoint(id: string, position: [number, number, number]): void {
+    if (this.movementTrailRouteManager) {
+      this.movementTrailRouteManager.addTrailPoint(id, position);
+    }
+  }
+
+  /**
+   * 清除轨迹
+   */
+  clearTrail(id: string): void {
+    if (this.movementTrailRouteManager) {
+      this.movementTrailRouteManager.clearTrail(id);
+    }
+  }
+
+  /**
+   * 设置预设路线
+   */
+  setRoute(id: string, waypoints: any[], config?: any): void {
+    if (!this.movementTrailRouteManager) {
+      throw new Error('MovementTrailRouteManager not initialized');
+    }
+    this.movementTrailRouteManager.setRoute(id, {
+      waypoints,
+      visualization: config
+    });
+  }
+
+  /**
+   * 清除预设路线
+   */
+  clearRoute(id: string): void {
+    if (this.movementTrailRouteManager) {
+      this.movementTrailRouteManager.clearRoute(id);
+    }
+  }
+
+  /**
+   * 获取运动管理器（高级用法）
+   */
+  getMovementTrailRouteManager(): MovementTrailRouteManager | null {
+    return this.movementTrailRouteManager;
+  }
+
   // ========== 工具方法 ==========
 
   protected getNativeMap(): any {
@@ -881,6 +994,9 @@ export class CesiumController extends MapController {
       cacheEnabled: true,
       cacheMaxSize: 500
     });
+
+    // 初始化运动/轨迹/路线管理器
+    this.movementTrailRouteManager = new MovementTrailRouteManager(this.viewer);
     
     // 初始化分类目录
     this.primitiveCatalog = new PrimitiveCatalog();

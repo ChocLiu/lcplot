@@ -35,7 +35,9 @@ lcplot/
 │   │   ├── cesium/
 │   │   │   ├── CesiumLineOfSight.ts
 │   │   │   ├── CesiumPrimitiveRenderer.ts
-│   │   │   └── CesiumInteractive.ts
+│   │   │   ├── CesiumInteractive.ts
+│   │   │   ├── MovementTrailRouteManager.ts  # 平滑移动+轨迹+路线
+│   │   │   └── high-performance/             # 高性能渲染引擎
 │   │   └── openlayers/
 │   │       └── ...（类似结构）
 │   └── types/                   # 类型定义
@@ -57,11 +59,12 @@ export enum MilitaryDomain {
   SEA = 'sea',            // 海上
   AIR = 'air',            // 空中
   SPACE = 'space',        // 太空
-  SUBSURFACE = 'subsurface', // 水下
-  SOF = 'sof',            // 特种作战
-  CYBER = 'cyber',        // 网络空间
-  SIGNAL = 'signal',      // 信号
-  ACTIVITY = 'activity'   // 活动
+  SUBSURFACE = 'subsurface',  // 水下
+  SOF = 'sof',                // 特种作战
+  LOW_ALTITUDE = 'low_altitude', // 低空（民用/小型UAV场景）
+  CYBER = 'cyber',            // 网络空间
+  SIGNAL = 'signal',          // 信号
+  ACTIVITY = 'activity'       // 活动
 }
 ```
 
@@ -137,6 +140,30 @@ export interface AdvancedPrimitive {
     billboardSize?: [number, number]; // 2D图标尺寸
     highlightColor?: string;     // 选中高亮颜色
   };
+
+  // 平滑移动配置（v0.4.0+）
+  movement?: MovementConfig;
+
+  // 轨迹配置（v0.4.0+）
+  trail?: TrailConfig;
+
+  // 预设路线（v0.4.0+）
+  route?: RouteConfig;
+}
+```
+
+#### 民用类型扩展（v0.4.0 新增）
+```typescript
+export enum SymbolType {
+  // ... 原有类型 ...
+
+  // 低空民用
+  LOW_ALT_CIVILIAN_UAV = 'LOW_ALT_CIVILIAN_UAV',
+  LOW_ALT_BIRD = 'LOW_ALT_BIRD',
+  LOW_ALT_BALLOON = 'LOW_ALT_BALLOON',
+
+  // 空中民用
+  AIR_CIVILIAN_AIRCRAFT = 'AIR_CIVILIAN_AIRCRAFT',
 }
 ```
 
@@ -497,6 +524,29 @@ class CesiumController extends MapController {
       this.setupLabelDragging(entity);
     }
   }
+}
+```
+
+### 6.3 CesiumController 运动/轨迹/路线 API
+```typescript
+class CesiumController extends MapController {
+  private movementTrailRouteManager: MovementTrailRouteManager;
+
+  // 平滑移动
+  startSmoothMove(id: string, targetPos: [number,number,number], durationMs?: number): void;
+  stopSmoothMove(id: string): void;
+
+  // 轨迹
+  setTrail(id: string, enabled: boolean, config?: Partial<TrailConfig>): void;
+  addTrailPoint(id: string, position: [number,number,number]): void;
+  clearTrail(id: string): void;
+
+  // 路线
+  setRoute(id: string, waypoints: Waypoint[], config?: RouteVisualizationConfig): void;
+  clearRoute(id: string): void;
+
+  // 高级访问
+  getMovementTrailRouteManager(): MovementTrailRouteManager | null;
 }
 ```
 

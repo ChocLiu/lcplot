@@ -77,7 +77,12 @@ export {
   type PrimitiveDataPackage,
   type SymbolResourceConfig,
   PrimitiveEventType,
-  type PrimitiveEventData
+  type PrimitiveEventData,
+  type MovementConfig,
+  type TrailConfig,
+  type Waypoint,
+  type RouteConfig,
+  type RouteVisualizationConfig
 } from './primitive';
 
 // 通视分析类型导出
