@@ -35,35 +35,55 @@ npm install cesium
 
 ### 基本使用
 
+#### 🆕 推荐方式：`addSymbol()` — 指定类型 + 敌我，不用记 SIDC
+
+```typescript
+import { CesiumController, SymbolType, IdentityCode } from 'lcplot';
+
+// 1. 创建控制器
+const controller = new CesiumController(containerElement, {
+  center: [116.4, 39.9],
+  zoom: 10
+});
+
+// 2. 初始化（或使用已有 Viewer）
+controller.init();
+// 或：controller.initWithViewer(yourViewer);
+
+// 3. 创建军标 — 只需指定类型+敌我，默认友方
+const tankId = await controller.addSymbol({
+  type: SymbolType.GROUND_TANK,      // 军标类型
+  identity: 'hostile',                // 敌我（默认 'friend'）
+  position: [116.4, 39.9, 0],
+  name: '敌方装甲连',
+  scale: 1.0
+});
+
+// 创建无人机（不传 identity = 默认友方）
+const uavId = await controller.addSymbol({
+  type: SymbolType.AIR_UAV,
+  position: [116.4, 39.9, 500],
+  name: '侦察无人机'
+});
+```
+
+#### 传统方式：`createAdvancedPrimitive()` — 直接传 SIDC
+
 ```typescript
 import { CesiumController, MilSIDC } from 'lcplot';
 
-// 1. 创建控制器（自动使用 hybrid 渲染模式）
 const controller = new CesiumController(containerElement, {
-  // 基础地图配置
-  center: [116.4, 39.9],   // 经度, 纬度（角度制）
+  center: [116.4, 39.9],
   zoom: 10
-}, {
-  // 渲染与符号配置
-  rendererMode: 'hybrid',   // 默认就是 hybrid
-  maxPrimitives: 100000
 });
 
-// 2. 初始化
 controller.init();
 
-// 3. 创建图元
 const tankId = await controller.createAdvancedPrimitive({
-  sidc: MilSIDC.Ground.FRIENDLY_TANK,   // 选择军标
-  position: [116.4, 39.9, 0],           // [经度°, 纬度°, 高度米]
-  properties: {
-    identity: 'friend',                  // 阵营
-    name: '第1坦克营'
-  },
-  visualization: {
-    scale: 1.0,
-    use3DModel: true                     // 近距离自动显示3D
-  }
+  sidc: MilSIDC.Ground.FRIENDLY_TANK,
+  position: [116.4, 39.9, 0],
+  properties: { name: '第1坦克营' },   // identity 自动从 SIDC 推断
+  visualization: { scale: 1.0 }
 });
 ```
 
@@ -266,19 +286,97 @@ if (renderer) {
 
 ## MIL-STD-2525D 军标选择
 
-### 使用常量表
+### 🆕 简化 API：`SymbolType` + `resolveSidc()`
 
 ```typescript
-import { MilSIDC } from 'lcplot';
+import { SymbolType, resolveSidc, SymbolTypeNames } from 'lcplot';
 
-// ===== 地面单位 =====
+// 指定类型 + 敌我属性 → 自动映射 15 位 SIDC
+resolveSidc(SymbolType.GROUND_TANK, 'friend')    // → SF__GUCI---A---  友方坦克
+resolveSidc(SymbolType.GROUND_TANK, 'hostile')   // → SH__GUCI---H---  敌方坦克
+resolveSidc(SymbolType.GROUND_TANK, 'neutral')   // → SN__GUCI---N---  中立坦克
+resolveSidc(SymbolType.GROUND_TANK, 'unknown')   // → SU__GUCI---U---  未知坦克
 
-// 友方（蓝色）
-MilSIDC.Ground.FRIENDLY_TANK           // SFGPUCA---A---  坦克
-MilSIDC.Ground.FRIENDLY_INFANTRY       // SFGPUIA---A---  步兵
-MilSIDC.Ground.FRIENDLY_MECHANIZED     // SFGPUMI---A---  机械化
-MilSIDC.Ground.FRIENDLY_ARTILLERY      // SFGPUFA---A---  火炮
-MilSIDC.Ground.FRIENDLY_AIR_DEFENSE    // SFGPUAD---A---  防空
+// 不传 identity 默认 'friend'
+resolveSidc(SymbolType.AIR_UAV)                  // → SF__APUAV--A---
+
+// 中文名称
+SymbolTypeNames[SymbolType.GROUND_TANK]           // → '坦克'
+SymbolTypeNames[SymbolType.AIR_UAV]              // → '无人机'
+```
+
+所有 45+ 类型按领域分三组：
+
+| 领域 | 类型数量 | SymbolType 前缀 |
+|------|----------|----------------|
+| 🗺️ 地面 Ground | 22 | `GROUND_*` |
+| ✈️ 空中 Air | 8 | `AIR_*` |
+| ⚓ 海上 Sea | 10 | `SEA_*` |
+| 🎯 特种作战 SOF | 3 | `SOF_*` |
+| **合计** | **43** | |
+
+#### 地面类型完整列表
+
+```typescript
+SymbolType.GROUND_TANK                  // 坦克
+SymbolType.GROUND_INFANTRY              // 步兵
+SymbolType.GROUND_MECHANIZED            // 机械化步兵
+SymbolType.GROUND_ARTILLERY             // 火炮
+SymbolType.GROUND_AIR_DEFENSE           // 防空
+SymbolType.GROUND_RECON                 // 侦察
+SymbolType.GROUND_ENGINEER              // 工兵
+SymbolType.GROUND_HEADQUARTERS          // 指挥部
+SymbolType.GROUND_MEDICAL               // 医疗
+SymbolType.GROUND_SUPPLY                // 补给
+SymbolType.GROUND_MAINTENANCE           // 维修
+SymbolType.GROUND_MORTAR                // 迫击炮
+SymbolType.GROUND_MISSILE               // 导弹
+SymbolType.GROUND_BRIDGE                // 桥梁
+SymbolType.GROUND_RADAR                 // 雷达
+SymbolType.GROUND_SIGNAL                // 通信
+SymbolType.GROUND_TRANSPORT             // 运输
+SymbolType.GROUND_MILITARY_POLICE       // 宪兵
+SymbolType.GROUND_CBRN                  // 防化
+SymbolType.GROUND_MILITARY_INTELLIGENCE // 军事情报
+```
+
+#### 空中类型完整列表
+
+```typescript
+SymbolType.AIR_FIXED_WING              // 固定翼飞机
+SymbolType.AIR_HELICOPTER              // 直升机
+SymbolType.AIR_UAV                     // 无人机
+SymbolType.AIR_MISSILE                 // 空射导弹
+SymbolType.AIR_AWACS                   // 预警机
+SymbolType.AIR_TANKER                  // 加油机
+SymbolType.AIR_TRANSPORT               // 运输机
+SymbolType.AIR_ATTACK_HELICOPTER        // 武装直升机
+```
+
+#### 海上类型完整列表
+
+```typescript
+SymbolType.SEA_SURFACE_COMBATANT       // 水面战斗舰艇
+SymbolType.SEA_CARRIER                 // 航母
+SymbolType.SEA_DESTROYER               // 驱逐舰
+SymbolType.SEA_FRIGATE                 // 护卫舰
+SymbolType.SEA_SUBMARINE               // 潜艇
+SymbolType.SEA_LANDING                 // 登陆舰
+SymbolType.SEA_PATROL                  // 巡逻艇
+SymbolType.SEA_MINE_WARFARE            // 扫雷舰
+SymbolType.SEA_AMPHIBIOUS              // 两栖舰
+SymbolType.SEA_MERCHANT                // 商船
+```
+
+#### 特种作战类型完整列表
+
+```typescript
+SymbolType.SOF_TEAM                    // 特种作战小队
+SymbolType.SOF_AVIATION                // 特种作战航空
+SymbolType.SOF_NAVAL                   // 特种作战海上
+```
+
+### 使用常量表（旧 API）
 MilSIDC.Ground.FRIENDLY_RECON          // SFGPURC---A---  侦察
 MilSIDC.Ground.FRIENDLY_HEADQUARTERS   // SFGPUHQ---A---  指挥部
 MilSIDC.Ground.FRIENDLY_RADAR          // SFGPURD---A---  雷达
@@ -329,7 +427,13 @@ MilSIDC.HEADQUARTERS
 ### 动态切换阵营
 
 ```typescript
-// 任意符号 → 敌方版本
+import { resolveSidc, SymbolType, MilSIDC } from 'lcplot';
+
+// 🔥 新方式：resolveSidc(type, identity) — 直接指定类型 + 敌我
+resolveSidc(SymbolType.GROUND_TANK, 'hostile')    // → SHFGUCI---H---
+resolveSidc(SymbolType.AIR_UAV, 'neutral')        // → SNFAPUAV--N---
+
+// 旧方式：MilSIDC.withIdentity(sidc, identity)
 const hostileSIDC = MilSIDC.withIdentity(MilSIDC.TANK, 'hostile');
 // → 'SHFGUCI---H---'
 
@@ -596,6 +700,74 @@ const results = controller.queryAdvancedPrimitives({
 
 ## 导出类型速查
 
+### 军标类型 (SymbolType)
+
+```typescript
+import { SymbolType } from 'lcplot';
+
+// 地面 (22种)
+SymbolType.GROUND_TANK                  // 坦克
+SymbolType.GROUND_INFANTRY              // 步兵
+SymbolType.GROUND_MECHANIZED            // 机械化
+SymbolType.GROUND_ARTILLERY             // 火炮
+SymbolType.GROUND_AIR_DEFENSE           // 防空
+SymbolType.GROUND_RECON                 // 侦察
+SymbolType.GROUND_ENGINEER              // 工兵
+SymbolType.GROUND_HEADQUARTERS          // 指挥部
+SymbolType.GROUND_MEDICAL               // 医疗
+SymbolType.GROUND_SUPPLY                // 补给
+SymbolType.GROUND_MAINTENANCE           // 维修
+SymbolType.GROUND_MORTAR                // 迫击炮
+SymbolType.GROUND_MISSILE               // 导弹
+SymbolType.GROUND_BRIDGE                // 桥梁
+SymbolType.GROUND_RADAR                 // 雷达
+SymbolType.GROUND_SIGNAL                // 通信
+SymbolType.GROUND_TRANSPORT             // 运输
+SymbolType.GROUND_MILITARY_POLICE       // 宪兵
+SymbolType.GROUND_CBRN                  // 防化
+SymbolType.GROUND_MILITARY_INTELLIGENCE // 军事情报
+
+// 空中 (8种)
+SymbolType.AIR_FIXED_WING              // 固定翼飞机
+SymbolType.AIR_HELICOPTER              // 直升机
+SymbolType.AIR_UAV                     // 无人机
+SymbolType.AIR_MISSILE                 // 空射导弹
+SymbolType.AIR_AWACS                   // 预警机
+SymbolType.AIR_TANKER                  // 加油机
+SymbolType.AIR_TRANSPORT               // 运输机
+SymbolType.AIR_ATTACK_HELICOPTER       // 武装直升机
+
+// 海上 (10种)
+SymbolType.SEA_SURFACE_COMBATANT       // 水面战斗舰艇
+SymbolType.SEA_CARRIER                 // 航母
+SymbolType.SEA_DESTROYER               // 驱逐舰
+SymbolType.SEA_FRIGATE                 // 护卫舰
+SymbolType.SEA_SUBMARINE               // 潜艇
+SymbolType.SEA_LANDING                 // 登陆舰
+SymbolType.SEA_PATROL                  // 巡逻艇
+SymbolType.SEA_MINE_WARFARE            // 扫雷舰
+SymbolType.SEA_AMPHIBIOUS              // 两栖舰
+SymbolType.SEA_MERCHANT                // 商船
+
+// 特种作战 (3种)
+SymbolType.SOF_TEAM                    // 特种作战小队
+SymbolType.SOF_AVIATION                // 特种作战航空
+SymbolType.SOF_NAVAL                   // 特种作战海上
+```
+
+### 核心函数
+
+```typescript
+import { resolveSidc, identityFromSidc, SymbolType } from 'lcplot';
+
+// 类型 + 敌我 → 15 位 SIDC
+resolveSidc(SymbolType.GROUND_TANK, 'hostile')   // → 'SHFGUCI---H---'
+
+// SIDC → 敌我属性
+identityFromSidc('SFGPUCA---A---')               // → 'friend'
+identityFromSidc('SHFGUCI---H---')               // → 'hostile'
+```
+
 ### 阵营 (IdentityCode)
 
 ```typescript
@@ -634,6 +806,55 @@ StatusCode.DESTROYED        // 被毁
 ---
 
 ## 完整示例
+
+### 🆕 简化 API 示例：`addSymbol()` + `SymbolType`
+
+```typescript
+import { CesiumController, SymbolType } from 'lcplot';
+
+const ctrl = new CesiumController(document.getElementById('map'));
+ctrl.init();
+
+// —— 只需指定类型 + 敌我（默认 friend）——
+
+// 友方坦克
+ctrl.addSymbol({
+  type: SymbolType.GROUND_TANK,
+  position: [116.38, 39.91, 0],
+  name: '第1坦克营'
+});
+
+// 敌方坦克
+ctrl.addSymbol({
+  type: SymbolType.GROUND_TANK,
+  identity: 'hostile',
+  position: [116.42, 39.88, 0],
+  name: '敌方装甲连'
+});
+
+// 中立直升机
+ctrl.addSymbol({
+  type: SymbolType.AIR_HELICOPTER,
+  identity: 'neutral',
+  position: [116.4, 39.9, 300],
+  name: '民用直升机'
+});
+
+// 航母
+ctrl.addSymbol({
+  type: SymbolType.SEA_CARRIER,
+  position: [118.0, 38.5, 0],
+  name: '辽宁舰'
+});
+
+// 敌军潜艇
+ctrl.addSymbol({
+  type: SymbolType.SEA_SUBMARINE,
+  identity: 'hostile',
+  position: [118.2, 38.3, -50],
+  name: '不明潜艇'
+});
+```
 
 ### 基本示例：创建多阵营图元
 
@@ -680,7 +901,7 @@ ctrl.createAdvancedPrimitive({
 
 ```tsx
 import { useEffect, useRef, useState } from 'react';
-import { CesiumController, MilSIDC } from 'lcplot';
+import { CesiumController, SymbolType } from 'lcplot';
 
 function MapComponent() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -689,23 +910,26 @@ function MapComponent() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const ctrl = new CesiumController(
-      containerRef.current,
-      {},
-      { rendererMode: 'hybrid' }
-    );
+    // 方式一（推荐）：LCPLOT 自动创建 Viewer
+    const ctrl = new CesiumController(containerRef.current);
     ctrl.init();
-    setController(ctrl);
+    
+    // 方式二：接入已有 Viewer
+    // const viewer = new Cesium.Viewer(containerRef.current, {...});
+    // const ctrl = new CesiumController(containerRef.current);
+    // ctrl.initWithViewer(viewer);
 
+    setController(ctrl);
     return () => ctrl.destroy();
   }, []);
 
   const addTank = async () => {
     if (!controller) return;
-    await controller.createAdvancedPrimitive({
-      sidc: MilSIDC.Ground.FRIENDLY_TANK,
+    await controller.addSymbol({
+      type: SymbolType.GROUND_TANK,       // 坦克
+      identity: 'friend',                  // 友方（默认）
       position: [116.4, 39.9, 0],
-      properties: { identity: 'friend', name: '坦克' }
+      name: '第1坦克营'
     });
   };
 
@@ -725,7 +949,7 @@ function MapComponent() {
 ### SIDC 验证工具
 
 ```typescript
-import { SIDCValidator } from 'lcplot';
+import { SIDCValidator, resolveSidc, identityFromSidc, SymbolType } from 'lcplot';
 
 // 验证 SIDC 格式
 SIDCValidator.validate('SFGPUCA---A---');   // true
@@ -739,6 +963,14 @@ SIDCValidator.parseDomain('SFGPUCA---A---');  // MilitaryDomain.LAND
 
 // 检查是否为有效美军标
 SIDCValidator.isMilStd2525D('SFGPUCA---A---'); // true
+
+// 用 SymbolType 生成 SIDC 并验证
+const sidc = resolveSidc(SymbolType.AIR_UAV, 'hostile');
+SIDCValidator.validate(sidc);                  // true
+
+// 从任意 SIDC 提取敌我
+identityFromSidc('SHFGUCI---H---');            // 'hostile'
+identityFromSidc('SFGPUCA---A---');            // 'friend'
 ```
 
 ### 图标符号库

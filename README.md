@@ -5,11 +5,17 @@
 ## ✨ 新增高级功能（v0.2.0）
 
 ### 🎖️ MIL-STD-2525D 美军标图元系统
-- **完整分类体系**：海、陆、空、天、海下、低空等9大领域
+- **45+ 军标类型**：地面(22)、空中(8)、海上(10)、特战(3)，每类4阵营(friend/hostile/neutral/unknown)
+- **✍️ 简化 API**：`ctrl.addSymbol({ type: SymbolType.TANK, identity: 'hostile' })` — 不用记 SIDC
+- **自动敌我推断**：`resolveSidc(type, identity)` 自动映射 15 位编码，`identityFromSidc()` 反向提取
 - **阵营系统**：友方、敌方、中立、未知等12种标准阵营
 - **SIDC编码**：15位美军标编码验证与解析
 - **图标库**：SVG图标按需加载，LRU缓存优化
-- **milsymbol 集成**：可选集成 [milsymbol](https://github.com/spatialillusions/milsymbol) 库，当本地图标缺失时自动生成标准 MIL-STD-2525D SVG 图标，支持实时生成与缓存
+- **milsymbol 集成**：可选集成 [milsymbol](https://github.com/spatialillusions/milsymbol) 库
+
+### 🔌 兼容已有 Cesium 地球
+- **`initWithViewer(existingViewer)`**：使用已创建的 Cesium.Viewer，不重复创建
+- **`destroy()` 不销毁外部 viewer**：ownsViewer 标记自动判断
 
 ### 🖼️ 高级图元渲染（Cesium）
 - **双模式渲染**：2D图标(Billboard) + 3D模型(glTF)
@@ -97,45 +103,39 @@ const cesiumMap = MapFactory.create('cesium', container, {
 cesiumMap.init();
 ```
 
-### 高级图元使用
+### 高级图元使用（新 API — 推荐）
 
 ```typescript
-import { CesiumController, IdentityCode } from 'lcplot';
+import { CesiumController, SymbolType } from 'lcplot';
 
 // 创建控制器
-const controller = new CesiumController(container, {}, {
-  symbolLibraryConfig: {
-    baseUrl: '/mil-icons',
-    format: 'svg',
-    size: [64, 64]
-  }
-});
+const controller = new CesiumController(container);
 
-// 创建坦克图元（友方）
-const tankId = await controller.createAdvancedPrimitive({
-  sidc: 'SFGPUCA---A---',
+// 方式一：LCPLOT 自动创建 Cesium Viewer
+controller.init();
+
+// 方式二：使用已有的 Cesium Viewer
+// const viewer = new Cesium.Viewer(container, {...});
+// controller.initWithViewer(viewer);
+
+// 创建坦克（只需指定类型 + 敌我，无需记忆 SIDC）
+const tankId = await controller.addSymbol({
+  type: SymbolType.GROUND_TANK,   // 军标类型
+  identity: 'friend',              // 敌我属性（默认 friend）
   position: [116.4, 39.9, 0],
-  properties: {
-    identity: IdentityCode.FRIEND,
-    name: '第1坦克营',
-    strength: 'BN'
-  },
-  interaction: {
-    draggable: true,
-    labelDraggable: true,
-    showLabel: true
-  }
+  name: '第1坦克营'
 });
 
-// 监听点击事件
-controller.onPrimitiveEvent('primitive:click', (data) => {
-  console.log('图元被点击:', data.primitiveId);
-  // 弹出属性面板
+// 创建敌方无人机
+const uavId = await controller.addSymbol({
+  type: SymbolType.AIR_UAV,
+  identity: 'hostile',
+  position: [116.4, 39.9, 500],
+  name: '敌方侦察无人机'
 });
-
-// 独立标牌拖拽
-// 用户可拖拽标牌，实体位置保持不变
 ```
+
+### 高级图元使用（旧 API — 传 SIDC）
 
 ### 使用 milsymbol 生成图标（可选）
 
